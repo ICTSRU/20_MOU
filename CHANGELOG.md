@@ -1,5 +1,10 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
+## v1.4 — 2026-10-21
+- Landing page: Web App URL configured (`WEB_APP_URL` → production `/exec` link); sign-in button now opens the platform.
+- Landing page: stricter URL check and no-cache headers so GitHub Pages/browser caching doesn't serve an old copy.
+- Version label updated to v1.4 across landing page and backend.
+
 ## v1.3 — 2026-10-21 (built on v1.1)
 - Backend moved to Google Apps Script + Google Sheets; encrypted signature files kept in a private Drive folder.
 - Sign-in limited to @sr.edu.sa accounts (Web App: "Anyone within SRU"); ITOC landing page on GitHub Pages.

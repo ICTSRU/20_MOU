@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>منصة توقيع مذكرات التفاهم — تسجيل الدخول</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -53,15 +56,16 @@ footer img{height:36px}
 </main>
 
 <footer><div class="in">
-  <span>© جامعة سليمان الراجحي — ICTD · الإصدار <span class="en">v1.3</span></span>
+  <span>© جامعة سليمان الراجحي — ICTD · الإصدار <span class="en">v1.4</span></span>
   <a href="https://ictsru.github.io/ITOC/#forms" target="_blank" rel="noopener"><img src="assets/itoc-logo.png" alt="ITOC" onerror="this.outerHTML='<span class=fb>ITOC</span>'"></a>
 </div></footer>
 
 <script>
 /* ⚙️ Paste the Apps Script Web App URL here (Deploy → Manage deployments → Web app URL) */
-const WEB_APP_URL = 'PASTE_WEB_APP_URL_HERE';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzkiU-vWCBgBKFC0Adz0Fm1pI0FFaMe7EHRseSr3d3gbG4rkYsTg4N4H5KXQ1hQ658H/exec';
 const go = document.getElementById('go');
-if (WEB_APP_URL.startsWith('https://script.google.com/')) go.href = WEB_APP_URL;
+const APP_URL = WEB_APP_URL.trim();
+if (/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(APP_URL)) go.href = APP_URL;
 else go.addEventListener('click', e => { e.preventDefault(); alert('لم يتم ضبط رابط المنصة بعد (WEB_APP_URL).'); });
 </script>
 </body>
