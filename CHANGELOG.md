@@ -1,5 +1,16 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
+## v1.7 — 2026-10-21
+- **Users tab (admins):** add/remove platform admins; add, disable, delete and e-mail-invite external users.
+- **External (guest) access:** guests listed in the new `Externals` sheet sign in through a second "Anyone" deployment with a one-time 6-digit code e-mailed to them (10-minute expiry, 5 tries, rate-limited, 6-hour session).
+- Guests see only MoUs where their e-mail is a party representative, cannot edit MoU text, and can add/remove only their own signature (enforced on the server).
+- Any user can register **their own** signature (linked to their e-mail); admins can register for anyone and link an owner e-mail.
+- **MoU logos:** right and left logo slots above the MoU (none / SRU / ICTD / ITOC / upload), saved per document.
+- Official SRU, ICTD and ITOC logos embedded in the platform and added to the landing page `assets/`.
+- Landing page: optional "Guest sign-in" button.
+- Automatic schema migration of existing sheets (new columns + `Externals` sheet); writes are now by column name.
+- `appsscript.json`: removed fixed web-app access so two deployments (University / Anyone) can coexist.
+
 ## v1.6 — 2026-10-21
 - Fix: "TypeError: Cannot read properties of null (reading 'appendRow')" on first sign-in when `setup` had not been run.
 - Backend is now self-healing: missing sheets, Drive folder or server secret are created automatically on first use (`ensure_`).

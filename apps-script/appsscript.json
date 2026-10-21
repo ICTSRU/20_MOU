@@ -1,9 +1,5 @@
 {
   "timeZone": "Asia/Riyadh",
   "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8",
-  "webapp": {
-    "executeAs": "USER_DEPLOYING",
-    "access": "DOMAIN"
-  }
+  "runtimeVersion": "V8"
 }
