@@ -1,5 +1,9 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
+## v1.5 — 2026-10-21
+- Landing page: Web App URL placed directly on the sign-in button (`href`); removed the script check and the "WEB_APP_URL not set" alert, so the button works even with a cached or blocked script.
+- Version label updated to v1.5.
+
 ## v1.4 — 2026-10-21
 - Landing page: Web App URL configured (`WEB_APP_URL` → production `/exec` link); sign-in button now opens the platform.
 - Landing page: stricter URL check and no-cache headers so GitHub Pages/browser caching doesn't serve an old copy.

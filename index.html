@@ -47,7 +47,7 @@ footer img{height:36px}
     <div class="en">MoU Signing Platform</div>
     <p>هذه المنصة مخصّصة لمنسوبي جامعة سليمان الراجحي. سيتم تحويلك إلى صفحة تسجيل الدخول من Google.</p>
     <div class="mail">سجّل الدخول ببريدك الجامعي <span class="en" style="color:inherit;font-size:14px">name@sr.edu.sa</span></div>
-    <a class="btn" id="go" href="#">
+    <a class="btn" id="go" href="https://script.google.com/macros/s/AKfycbzkiU-vWCBgBKFC0Adz0Fm1pI0FFaMe7EHRseSr3d3gbG4rkYsTg4N4H5KXQ1hQ658H/exec" target="_top" rel="noopener">
       <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17.1z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.9-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.8-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.2-13.5-9.9l-7.9 6C6.6 42.6 14.6 48 24 48z"/></svg>
       تسجيل الدخول بحساب الجامعة
     </a>
@@ -56,17 +56,10 @@ footer img{height:36px}
 </main>
 
 <footer><div class="in">
-  <span>© جامعة سليمان الراجحي — ICTD · الإصدار <span class="en">v1.4</span></span>
+  <span>© جامعة سليمان الراجحي — ICTD · الإصدار <span class="en">v1.5</span></span>
   <a href="https://ictsru.github.io/ITOC/#forms" target="_blank" rel="noopener"><img src="assets/itoc-logo.png" alt="ITOC" onerror="this.outerHTML='<span class=fb>ITOC</span>'"></a>
 </div></footer>
 
-<script>
-/* ⚙️ Paste the Apps Script Web App URL here (Deploy → Manage deployments → Web app URL) */
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzkiU-vWCBgBKFC0Adz0Fm1pI0FFaMe7EHRseSr3d3gbG4rkYsTg4N4H5KXQ1hQ658H/exec';
-const go = document.getElementById('go');
-const APP_URL = WEB_APP_URL.trim();
-if (/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(APP_URL)) go.href = APP_URL;
-else go.addEventListener('click', e => { e.preventDefault(); alert('لم يتم ضبط رابط المنصة بعد (WEB_APP_URL).'); });
-</script>
+<!-- v1.5: Web App URL is set directly on the sign-in button (href) — no script needed. -->
 </body>
 </html>

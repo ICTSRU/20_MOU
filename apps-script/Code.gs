@@ -1,6 +1,6 @@
 /**
  * منصة توقيع مذكرات التفاهم — SRU MoU Signing
- * Google Apps Script backend · v1.4
+ * Google Apps Script backend · v1.5
  *
  * Security model
  *  - Encryption/decryption happens ONLY in the user's browser (Web Crypto).
@@ -13,7 +13,7 @@
  *    direct access to the Sheet or the Drive folder.
  */
 
-const APP_VERSION   = '1.4';
+const APP_VERSION   = '1.5';
 const ALLOWED_DOMAIN = 'sr.edu.sa';
 const MAX_FAILS     = 5;
 const LOCK_MINUTES  = 15;

@@ -1,4 +1,4 @@
-# منصة توقيع مذكرات التفاهم — SRU MoU Signing · v1.4
+# منصة توقيع مذكرات التفاهم — SRU MoU Signing · v1.5
 
 منصة لإعداد مذكرات التفاهم وتوقيعها إلكترونياً، مع سجل توقيعات **مشفّرة دائماً**.
 **المعمارية:** واجهة HTML + Google Apps Script (Web App) + Google Sheets (البيانات والسجلات) + Google Drive (ملفات التوقيعات المشفّرة) + GitHub (المصدر وصفحة الدخول).
@@ -7,7 +7,7 @@
 
 ## هيكل المستودع
 ```
-mou-signing-v1.4/
+mou-signing-v1.5/
 ├── index.html              ← صفحة الدخول (ITOC) على GitHub Pages — تحوّل إلى المنصة
 ├── assets/                 ← شعارات: sru-logo.png · ictd-logo.png · itoc-logo.png
 ├── apps-script/
@@ -50,7 +50,7 @@ mou-signing-v1.4/
 2. الإعدادات:
    | الحقل | القيمة |
    |---|---|
-   | Description | `v1.4` |
+   | Description | `v1.5` |
    | Execute as | **Me** |
    | Who has access | **Anyone within Sulaiman Al Rajhi University** |
 3. **Deploy** وانسخ **Web app URL** (ينتهي بـ ‎`/exec`).
@@ -59,18 +59,14 @@ mou-signing-v1.4/
 > عند تعديل الكود لاحقاً: **Deploy → Manage deployments → ✏️ → Version: New version → Deploy** — يبقى الرابط نفسه.
 
 ### المرحلة 4 — GitHub (5 دقائق)
-1. أنشئ مستودعاً (مثلاً ضمن `ictsru`) أو استخدم مستودع ITOC، وارفع مجلد **`mou-signing-v1.4`** كما هو.
+1. أنشئ مستودعاً (مثلاً ضمن `ictsru`) أو استخدم مستودع ITOC، وارفع مجلد **`mou-signing-v1.5`** كما هو.
 2. ضع الشعارات الثلاثة في **`assets/`**.
-3. في **`index.html`** عدّل السطر:
-   ```js
-   const WEB_APP_URL = 'PASTE_WEB_APP_URL_HERE';
-   ```
-   والصق رابط الـ Web App.
+3. رابط الـ Web App مضبوط مباشرة في زر الدخول داخل **`index.html`** (الخاصية `href`). لتغييره ابحث عن `script.google.com` في الملف.
 4. **Settings → Pages → Deploy from branch → main / root → Save**.
-5. رابط صفحة الدخول: `https://<org>.github.io/<repo>/mou-signing-v1.4/`
+5. رابط صفحة الدخول: `https://<org>.github.io/<repo>/mou-signing-v1.5/`
 6. (اختياري) لإظهار الشعارات داخل المنصة: في `Index.html` على Apps Script عدّل:
    ```js
-   const LOGOS = { sru:'https://<org>.github.io/<repo>/mou-signing-v1.4/assets/sru-logo.png', ictd:'…', itoc:'…' };
+   const LOGOS = { sru:'https://<org>.github.io/<repo>/mou-signing-v1.5/assets/sru-logo.png', ictd:'…', itoc:'…' };
    ```
 7. أضف الرابط إلى بوابة نماذج ITOC.
 
