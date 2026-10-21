@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+:root{
+  --purple:#501e8c;--purple-dark:#3a1464;--purple-light:#f0ebf8;
+  --blue:#0a6eaa;--blue-light:#e6f3fa;--bg:#f7f5fb;--border:rgba(80,30,140,.12);
+  --ink:#241436;--muted:#6b5a80;--radius:4px;--ok:#1d7a46;--ok-bg:#e8f6ee;--danger:#b42318;--danger-bg:#fdecea;--warn:#8a5a00;--warn-bg:#fff6e0;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Cairo',Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.8;-webkit-user-select:none;user-select:none}
+input,select,[contenteditable=true]{-webkit-user-select:text;user-select:text}
+.en{unicode-bidi:isolate;direction:ltr;display:inline-block}
+svg.lucide{width:17px;height:17px;vertical-align:-3px;stroke-width:2}
+
+.band{background:#fff;border-bottom:1px solid var(--border)}
+.band .in{max-width:1100px;margin:auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.band img{height:58px;object-fit:contain}
+.logo-fallback{font-weight:800;color:var(--purple);font-size:13px;border:1px dashed var(--border);padding:8px 12px;border-radius:var(--radius)}
+.band .t{text-align:center;flex:1}
+.band .t h1{margin:0;font-size:19px;color:var(--purple-dark)}
+.band .t div{font-size:12px;color:var(--muted)}
+.diag{height:5px;background:linear-gradient(90deg,var(--blue) 0 30%,var(--purple) 30% 100%)}
+.topbar{background:var(--purple-dark)}
+.topbar .in{max-width:1100px;margin:auto;padding:0 16px;display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.tab{background:none;border:0;color:#d9cdee;font:inherit;font-weight:700;padding:12px 16px;cursor:pointer;border-bottom:3px solid transparent}
+.tab.active{color:#fff;border-bottom-color:#fff}
+.user{margin-inline-start:auto;color:#d9cdee;font-size:12px}
+.ver{background:rgba(255,255,255,.14);color:#fff;font-size:12px;padding:2px 10px;border-radius:20px;margin-inline-start:8px}
+
+.wrap{max-width:1100px;margin:auto;padding:18px 16px 40px}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.card h2{margin:0 0 12px;font-size:17px;color:var(--purple)}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.btn{font:inherit;font-weight:700;font-size:14px;border-radius:var(--radius);padding:7px 14px;cursor:pointer;border:1px solid var(--purple);background:var(--purple);color:#fff;display:inline-flex;align-items:center;gap:6px}
+.btn.sec{background:#fff;color:var(--purple)}
+.btn.danger{background:#fff;color:var(--danger);border-color:var(--danger)}
+.btn.sm{padding:4px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.sep{width:1px;height:26px;background:var(--border);margin:0 4px}
+label{font-weight:700;font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+input,select{font:inherit;width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;color:var(--ink)}
+input:focus,select:focus,[contenteditable=true]:focus{outline:2px solid var(--blue);outline-offset:1px}
+.grid{display:grid;gap:12px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:720px){.g2,.g3{grid-template-columns:1fr}}
+.status{font-size:12px;padding:2px 10px;border-radius:20px;font-weight:700;background:var(--purple-light);color:var(--purple)}
+.status.signed{background:var(--ok-bg);color:var(--ok)}
+.status.partially-signed{background:var(--warn-bg);color:var(--warn)}
+.dirty{color:var(--warn);font-size:12px;font-weight:700}
+
+.lockbar,.tamper{display:none;border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-weight:700}
+.lockbar{background:var(--ok-bg);color:var(--ok);border:1px solid #b7e2c8}
+.tamper{background:var(--danger-bg);color:var(--danger);border:1px solid #f3b8b2}
+.locked .lockbar{display:block}
+.tampered .tamper{display:block}
+.doc{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:34px 40px;max-width:860px;margin:auto;box-shadow:0 2px 14px rgba(58,20,100,.06)}
+@media(max-width:720px){.doc{padding:20px 16px}}
+.doc-head{text-align:center;border-bottom:2px solid var(--purple-light);padding-bottom:14px;margin-bottom:18px}
+#docTitle{font-size:24px;font-weight:800;color:var(--purple-dark);margin:0 0 8px;padding:4px}
+.meta{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 22px;font-size:14px;color:var(--muted)}
+.meta input{width:auto;display:inline-block;padding:3px 8px}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+@media(max-width:720px){.parties{grid-template-columns:1fr}}
+.party{background:var(--purple-light);border-radius:var(--radius);padding:10px 12px}
+.party b{color:var(--purple)}
+.party input{margin-top:4px;font-weight:700}
+.rt{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+#docBody{min-height:300px;padding:6px;text-align:justify}
+#docBody h3{font-size:16px;color:var(--purple);margin:16px 0 4px}
+#docBody p{margin:0 0 8px}
+.sigs{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:28px;border-top:2px solid var(--purple-light);padding-top:18px}
+@media(max-width:720px){.sigs{grid-template-columns:1fr}}
+.sig{border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center}
+.sig .who{font-weight:800;color:var(--purple)}
+.sig .org{font-size:13px;color:var(--muted);margin-bottom:6px}
+.sig .row{font-size:14px;text-align:right;margin:2px 0}
+.sigbox{height:130px;border-bottom:1.5px dashed var(--muted);display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;margin:8px 0;color:var(--muted);font-size:13px;position:relative}
+.sigbox img{max-height:120px;max-width:100%;pointer-events:none}
+.stamp{font-size:11px;color:var(--ok);min-height:16px}
+.fp{text-align:center;font-size:11px;color:var(--muted);margin-top:16px;word-break:break-all}
+
+/* Screen-capture deterrence (from v1.1) */
+.protect{position:relative;cursor:pointer}
+.protect img{filter:blur(10px);transition:filter .12s;-webkit-user-drag:none}
+.protect.reveal img{filter:none}
+.wm{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;transform:rotate(-14deg);color:rgba(180,35,24,.38);font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden}
+.hold{font-size:11px;color:var(--muted)}
+.shield{position:fixed;inset:0;background:var(--purple-dark);color:#fff;display:none;flex-direction:column;gap:8px;align-items:center;justify-content:center;z-index:100;font-size:18px;font-weight:700;text-align:center;padding:20px}
+.shielded .shield{display:flex}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{background:var(--purple);color:#fff;font-weight:700;padding:8px;text-align:right}
+td{border-bottom:1px solid var(--border);padding:8px;vertical-align:middle}
+tr:nth-child(even) td{background:#fcfbfe}
+.chip{display:inline-flex;gap:4px;align-items:center;font-size:12px;padding:1px 9px;border-radius:20px;background:var(--blue-light);color:var(--blue);font-weight:700}
+.chip.lk{background:var(--danger-bg);color:var(--danger)}
+.empty{text-align:center;color:var(--muted);padding:20px}
+.src{display:flex;gap:8px;margin-bottom:8px}
+.src label{display:flex;align-items:center;gap:6px;font-weight:600;color:var(--ink);cursor:pointer;margin:0;border:1px solid var(--border);padding:5px 12px;border-radius:var(--radius)}
+.src input{width:auto}
+#pad{width:100%;height:180px;border:1px dashed var(--purple);border-radius:var(--radius);background:#fff;touch-action:none;cursor:crosshair}
+#upPrev{max-height:120px;display:none;margin-top:8px;border:1px solid var(--border);padding:4px;background:#fff}
+.hint{font-size:12px;color:var(--muted)}
+.note{background:var(--blue-light);border-inline-start:4px solid var(--blue);padding:10px 12px;border-radius:var(--radius);font-size:13px}
+
+.modal{position:fixed;inset:0;background:rgba(36,20,54,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal.open{display:flex}
+.mbox{background:#fff;border-radius:var(--radius);width:100%;max-width:420px;padding:20px;border-top:5px solid var(--purple)}
+.mbox h3{margin:0 0 4px;color:var(--purple-dark)}
+.mbox .sub{color:var(--muted);font-size:13px;margin-bottom:12px}
+.mbox .err{color:var(--danger);font-size:13px;min-height:20px}
+.mbox .act{display:flex;gap:8px;margin-top:10px}
+#prevImg{max-width:100%;max-height:200px;display:block;margin:10px auto;border:1px solid var(--border)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 18px;border-radius:var(--radius);font-size:14px;opacity:0;transition:.25s;z-index:60;pointer-events:none}
+.toast.show{opacity:1}
+.busy{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));display:none;z-index:70}
+.loading .busy{display:block}
+
+footer{border-top:1px solid var(--border);background:#fff}
+footer .in{max-width:1100px;margin:auto;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+footer img{height:38px}
+
+@media print{
+  @page{size:A4;margin:16mm}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .no-print,.topbar,.toolbar,.rt,.lockbar,.tamper,footer,.diag,.hold,.wm,.shield,.busy{display:none!important}
+  .wrap{padding:0;max-width:none}
+  .doc{border:0;box-shadow:none;padding:0;max-width:none}
+  .meta input,.party input{border:0;padding:0;background:none}
+  .sig{break-inside:avoid}
+  .protect img{filter:none!important}
+  #view-register{display:none!important}
+}
+</style>
+</head>
+<body>
+<div class="busy"></div>
+
+<div class="band">
+  <div class="in">
+    <span data-logo="sru" data-alt="جامعة سليمان الراجحي"></span>
+    <div class="t">
+      <h1>منصة توقيع مذكرات التفاهم</h1>
+      <div><span class="en">MoU Signing Platform</span> — الإدارة التنفيذية للاتصالات وتقنية المعلومات</div>
+    </div>
+    <span data-logo="ictd" data-alt="ICTD"></span>
+  </div>
+</div>
+<div class="diag"></div>
+<nav class="topbar no-print">
+  <div class="in">
+    <button class="tab active" data-view="doc"><i data-lucide="file-signature"></i> المذكرة</button>
+    <button class="tab" data-view="register"><i data-lucide="key-round"></i> إدارة التوقيعات</button>
+    <span class="user"><i data-lucide="user"></i> <span class="en" id="userEmail"></span></span>
+    <span class="ver">الإصدار <span class="en" id="verLbl"></span></span>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- ================= DOCUMENT ================= -->
+<section id="view-doc">
+  <div class="toolbar no-print">
+    <button class="btn" onclick="saveDoc()"><i data-lucide="save"></i> حفظ في السجل</button>
+    <button class="btn sec" onclick="printDoc()"><i data-lucide="printer"></i> طباعة / PDF</button>
+    <span class="sep"></span>
+    <select id="docList" style="width:auto;max-width:320px" onchange="openDoc(this.value)"><option value="">📂 فتح مذكرة محفوظة…</option></select>
+    <button class="btn sec sm" onclick="refreshDocs()" title="تحديث القائمة"><i data-lucide="refresh-cw"></i></button>
+    <span class="sep"></span>
+    <button class="btn danger" onclick="newDoc()"><i data-lucide="file-plus"></i> مذكرة جديدة</button>
+    <span id="docStatus" class="status">مسودة</span>
+    <span id="dirty" class="dirty" hidden>● تغييرات غير محفوظة</span>
+  </div>
+
+  <div id="docWrap">
+    <div class="lockbar no-print"><i data-lucide="lock"></i> المستند مقفل للتعديل لأنه يحتوي على توقيع. إزالة أي توقيع تتطلب الرقم السري لصاحبه.</div>
+    <div class="tamper no-print"><i data-lucide="alert-triangle"></i> تحذير: محتوى المستند لا يطابق بصمته وقت التوقيع — ربما عُدّل بعد التوقيع.</div>
+
+    <article class="doc">
+      <div class="doc-head">
+        <h2 id="docTitle" contenteditable="true" spellcheck="false">مذكرة تفاهم مشترك</h2>
+        <div class="meta">
+          <span>رقم المذكرة: <input id="refNo" size="18"></span>
+          <span>التاريخ: <input id="docDate" type="date"></span>
+          <span id="hijri"></span>
+        </div>
+      </div>
+      <div class="parties">
+        <div class="party"><b>الطرف الأول:</b><input id="p1org"></div>
+        <div class="party"><b>الطرف الثاني:</b><input id="p2org"></div>
+      </div>
+      <div class="rt no-print" id="rt">
+        <button class="btn sec sm" data-cmd="bold" title="عريض"><i data-lucide="bold"></i></button>
+        <button class="btn sec sm" data-cmd="underline" title="تسطير"><i data-lucide="underline"></i></button>
+        <button class="btn sec sm" data-cmd="insertOrderedList" title="قائمة مرقمة"><i data-lucide="list-ordered"></i></button>
+        <button class="btn sec sm" data-cmd="insertUnorderedList" title="قائمة نقطية"><i data-lucide="list"></i></button>
+        <button class="btn sec sm" onclick="addClause()"><i data-lucide="plus"></i> إضافة مادة</button>
+      </div>
+      <div id="docBody" contenteditable="true"></div>
+      <div class="sigs" id="sigs"></div>
+      <div class="fp" id="fingerprint"></div>
+    </article>
+  </div>
+</section>
+
+<!-- ================= SIGNATURE REGISTER ================= -->
+<section id="view-register" hidden>
+  <div class="card" id="addCard">
+    <h2><i data-lucide="user-plus"></i> إضافة صاحب توقيع</h2>
+    <div class="grid g3">
+      <div><label>الاسم *</label><input id="sName" placeholder="الاسم الكامل"></div>
+      <div><label>المسمى الوظيفي</label><input id="sPos" placeholder="مثال: رئيس الجامعة"></div>
+      <div><label>الجهة</label><input id="sOrg" placeholder="مثال: جامعة سليمان الراجحي"></div>
+    </div>
+    <div style="margin-top:14px">
+      <label>صورة التوقيع *</label>
+      <div class="src">
+        <label><input type="radio" name="src" value="upload" checked> رفع صورة</label>
+        <label><input type="radio" name="src" value="draw"> رسم التوقيع</label>
+      </div>
+      <div id="srcUpload">
+        <input type="file" id="sFile" accept="image/png,image/jpeg,image/webp">
+        <div class="hint">يُفضَّل PNG بخلفية شفافة. تُصغَّر الصورة وتُشفَّر داخل المتصفح قبل إرسالها — لا تصل الصورة الأصلية إلى الخادم أبداً.</div>
+        <img id="upPrev" alt="">
+      </div>
+      <div id="srcDraw" hidden>
+        <canvas id="pad"></canvas>
+        <button class="btn sec sm" style="margin-top:6px" onclick="clearPad()"><i data-lucide="eraser"></i> مسح</button>
+      </div>
+    </div>
+    <div class="grid g2" style="margin-top:14px">
+      <div><label>الرقم السري * (8 خانات على الأقل تشمل حروفاً وأرقاماً)</label><input id="sPin" type="password" autocomplete="new-password"></div>
+      <div><label>تأكيد الرقم السري *</label><input id="sPin2" type="password" autocomplete="new-password"></div>
+    </div>
+    <div class="hint" style="margin-top:6px">يُسلَّم الرقم السري لصاحب التوقيع فقط. لا يمكن استرجاعه — عند نسيانه يُحذف التوقيع ويُضاف من جديد.</div>
+    <div style="margin-top:14px"><button class="btn" id="addBtn" onclick="addSigner()"><i data-lucide="lock"></i> تشفير وحفظ التوقيع</button></div>
+  </div>
+  <div class="note" id="notAdmin" hidden style="margin-bottom:16px">إضافة التوقيعات وحذفها متاحة لمسؤولي المنصة فقط. يمكنك معاينة توقيعك أو تغيير رقمه السري.</div>
+
+  <div class="card">
+    <div class="toolbar" style="justify-content:space-between">
+      <h2 style="margin:0"><i data-lucide="shield-check"></i> سجل التوقيعات المشفّرة</h2>
+      <button class="btn sec sm" onclick="loadSigners()"><i data-lucide="refresh-cw"></i> تحديث</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead><tr><th>#</th><th>الاسم</th><th>المسمى</th><th>الجهة</th><th>الحالة</th><th>تاريخ الإضافة</th><th>إجراءات</th></tr></thead>
+        <tbody id="regBody"><tr><td colspan="7" class="empty">جارٍ التحميل…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>آلية الحماية:</b> تُشفَّر صورة التوقيع داخل متصفحك بخوارزمية <span class="en">AES-256-GCM</span> بمفتاح مشتق من الرقم السري (<span class="en">PBKDF2-SHA256</span>). يُحفَظ في Google Drive النص المشفّر فقط، ولا يُرسَل الرقم السري ولا الصورة الأصلية إلى الخادم. لا يُسلَّم النص المشفّر إلا بعد التحقق من الرقم السري على الخادم، مع قفل التوقيع بعد <span id="mfLbl"></span> محاولات خاطئة، وتسجيل كل عملية (البريد، التاريخ، الوقت) في سجل التدقيق.
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="in">
+    <span>© جامعة سليمان الراجحي — الإدارة التنفيذية للاتصالات وتقنية المعلومات · الإصدار <span class="en" id="verLbl2"></span></span>
+    <a href="https://ictsru.github.io/ITOC/#forms" target="_blank" rel="noopener"><span data-logo="itoc" data-alt="ITOC"></span></a>
+  </div>
+</footer>
+
+<div class="modal" id="pinModal">
+  <div class="mbox">
+    <h3 id="pinTitle">أدخل الرقم السري</h3>
+    <div class="sub" id="pinSub"></div>
+    <input id="pinInput" type="password" autocomplete="off" placeholder="الرقم السري">
+    <input id="pinInput2" type="password" autocomplete="off" placeholder="الرقم السري الجديد" style="margin-top:8px" hidden>
+    <input id="pinInput3" type="password" autocomplete="off" placeholder="تأكيد الرقم السري الجديد" style="margin-top:8px" hidden>
+    <div class="err" id="pinErr"></div>
+    <div class="act">
+      <button class="btn" id="pinOk"><i data-lucide="check"></i> تأكيد</button>
+      <button class="btn sec" id="pinCancel">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="prevModal">
+  <div class="mbox">
+    <h3 id="prevTitle">معاينة التوقيع</h3>
+    <div class="sub">تُغلق المعاينة تلقائياً خلال 15 ثانية.</div>
+    <div class="protect"><img id="prevImg" alt="" draggable="false"><span class="wm" id="prevWm"></span></div>
+    <div class="hold" style="text-align:center">اضغط مع الاستمرار لعرض التوقيع</div>
+    <div class="act"><button class="btn sec" onclick="closePreview()">إغلاق</button></div>
+  </div>
+</div>
+
+<div class="shield"><span>المحتوى محمي — Protected content</span><span style="font-size:14px;font-weight:600">عُد إلى نافذة الصفحة لمتابعة العرض</span></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ---------- Boot data injected by Apps Script ---------- */
+const BOOT = <?!= boot ?>;
+const VERSION = BOOT.version;
+const ITER = 310000;
+/* Public logo URLs (e.g. from the GitHub repo's assets folder). Leave empty to show text labels. */
+const LOGOS = { sru:'', ictd:'', itoc:'' };
+
+const $ = s => document.querySelector(s);
+const te = new TextEncoder(), td = new TextDecoder();
+const icons = () => { try { window.lucide && lucide.createIcons(); } catch (e) {} };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2800); }
+const fmtDT = d => { const x=new Date(d); return isNaN(x)?'':x.toLocaleString('ar-SA-u-ca-gregory-nu-latn',{dateStyle:'medium',timeStyle:'short'}); };
+const today = () => new Date().toISOString().slice(0,10);
+
+/* ---------- Server calls ---------- */
+let pending = 0;
+function call(action, payload){
+  pending++; document.body.classList.add('loading');
+  return new Promise((res, rej) => google.script.run
+    .withSuccessHandler(v => { if(--pending===0) document.body.classList.remove('loading'); res(v); })
+    .withFailureHandler(e => { if(--pending===0) document.body.classList.remove('loading'); rej(new Error(e && e.message ? e.message : String(e))); })
+    .api(action, payload || {}));
+}
+
+/* ---------- Crypto (browser only) ---------- */
+function toB64(buf){ const u=new Uint8Array(buf); let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); }
+function fromB64(s){ const b=atob(s), u=new Uint8Array(b.length); for(let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
+const rand = n => crypto.getRandomValues(new Uint8Array(n));
+async function pinBase(pin){ return crypto.subtle.importKey('raw', te.encode(pin), 'PBKDF2', false, ['deriveKey','deriveBits']); }
+async function encKey(pin, salt, iter){ return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'}, await pinBase(pin), {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']); }
+/** Auth tag: derived from the PIN with a DIFFERENT salt — proves the PIN to the server but cannot decrypt. */
+async function authTag(pin, saltB64, iter){ return toB64(await crypto.subtle.deriveBits({name:'PBKDF2', salt:fromB64(saltB64), iterations:iter, hash:'SHA-256'}, await pinBase(pin), 256)); }
+async function sealSignature(dataUrl, pin){
+  const salt=rand(16), iv=rand(12), aSalt=toB64(rand(16));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, await encKey(pin, salt, ITER), te.encode(dataUrl));
+  return { enc:{ salt:toB64(salt), iv:toB64(iv), ct:toB64(ct), iter:ITER }, auth:{ salt:aSalt, tag:await authTag(pin, aSalt, ITER) } };
+}
+async function openSignature(enc, pin){
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:fromB64(enc.iv)}, await encKey(pin, fromB64(enc.salt), enc.iter), fromB64(enc.ct));
+  return td.decode(pt);
+}
+async function sha256(str){ const h=await crypto.subtle.digest('SHA-256', te.encode(str)); return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,'0')).join(''); }
+const pinOk = p => p.length>=8 && /\d/.test(p) && /[A-Za-z؀-ۿ]/.test(p);
+
+/* ---------- Signers ---------- */
+let signers = [];
+const getSigner = id => signers.find(s=>s.id===id);
+async function loadSigners(){
+  try{ signers = await call('listSigners'); }catch(e){ toast(e.message); }
+  renderRegister(); renderSigs();
+}
+/** Verify PIN on the server, receive ciphertext, decrypt locally. */
+async function unlockSigner(id, pin, purpose, ctx){
+  const s = getSigner(id); if(!s) throw new Error('التوقيع غير موجود');
+  const tag = await authTag(pin, s.authSalt, s.iter);
+  const r = await call('unlock', {id, tag, purpose, ctx});
+  if(!r.ok) throw new Error(r.msg);
+  return openSignature(r.enc, pin);
+}
+
+function renderRegister(){
+  const tb=$('#regBody');
+  tb.innerHTML = !signers.length ? '<tr><td colspan="7" class="empty">لا توجد توقيعات مسجّلة بعد.</td></tr>' :
+    signers.map((s,i)=>`<tr>
+      <td>${i+1}</td><td><b>${esc(s.name)}</b></td><td>${esc(s.position)}</td><td>${esc(s.org)}</td>
+      <td>${s.locked?'<span class="chip lk"><i data-lucide="lock"></i> مقفل مؤقتاً</span>':'<span class="chip"><i data-lucide="lock"></i> مشفّر</span>'}</td>
+      <td>${fmtDT(s.createdAt)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn sec sm" onclick="previewSigner('${s.id}')" title="معاينة"><i data-lucide="eye"></i></button>
+        <button class="btn sec sm" onclick="changePin('${s.id}')" title="تغيير الرقم السري"><i data-lucide="key-round"></i></button>
+        ${BOOT.isAdmin?`<button class="btn danger sm" onclick="deleteSigner('${s.id}')" title="حذف"><i data-lucide="trash-2"></i></button>`:''}
+      </td></tr>`).join('');
+  icons();
+}
+
+/* image source: upload or draw */
+let uploadedURL = null;
+document.querySelectorAll('input[name=src]').forEach(r=>r.addEventListener('change',()=>{
+  const draw=document.querySelector('input[name=src]:checked').value==='draw';
+  $('#srcUpload').hidden=draw; $('#srcDraw').hidden=!draw; if(draw) sizePad();
+}));
+$('#sFile').addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  if(f.size>5*1024*1024){ toast('حجم الصورة كبير (الحد 5MB)'); e.target.value=''; return; }
+  const img=new Image(); img.onload=()=>{
+    const sc=Math.min(1,500/img.width,200/img.height), c=document.createElement('canvas');
+    c.width=Math.round(img.width*sc); c.height=Math.round(img.height*sc);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    uploadedURL=c.toDataURL('image/png'); $('#upPrev').src=uploadedURL; $('#upPrev').style.display='block'; URL.revokeObjectURL(img.src);
+  }; img.src=URL.createObjectURL(f);
+});
+const pad=$('#pad'); let pctx, drawing=false, padDirty=false;
+function sizePad(){ const r=pad.getBoundingClientRect(); if(!r.width) return; pad.width=r.width*2; pad.height=r.height*2; pctx=pad.getContext('2d'); pctx.scale(2,2); pctx.lineWidth=2.4; pctx.lineCap='round'; pctx.lineJoin='round'; pctx.strokeStyle='#14125a'; padDirty=false; }
+function clearPad(){ sizePad(); }
+const pt=e=>{ const r=pad.getBoundingClientRect(); return [e.clientX-r.left,e.clientY-r.top]; };
+pad.addEventListener('pointerdown',e=>{ if(!pctx) sizePad(); drawing=true; pad.setPointerCapture(e.pointerId); const [x,y]=pt(e); pctx.beginPath(); pctx.moveTo(x,y); });
+pad.addEventListener('pointermove',e=>{ if(!drawing) return; const [x,y]=pt(e); pctx.lineTo(x,y); pctx.stroke(); padDirty=true; });
+['pointerup','pointerleave','pointercancel'].forEach(ev=>pad.addEventListener(ev,()=>drawing=false));
+function padURL(){
+  const d=pctx.getImageData(0,0,pad.width,pad.height).data; let x0=pad.width,y0=pad.height,x1=0,y1=0;
+  for(let y=0;y<pad.height;y++) for(let x=0;x<pad.width;x++) if(d[(y*pad.width+x)*4+3]>0){ if(x<x0)x0=x; if(y<y0)y0=y; if(x>x1)x1=x; if(y>y1)y1=y; }
+  const m=10; x0=Math.max(0,x0-m); y0=Math.max(0,y0-m); x1=Math.min(pad.width,x1+m); y1=Math.min(pad.height,y1+m);
+  const c=document.createElement('canvas'), sc=Math.min(1,500/(x1-x0),200/(y1-y0));
+  c.width=Math.round((x1-x0)*sc); c.height=Math.round((y1-y0)*sc);
+  c.getContext('2d').drawImage(pad,x0,y0,x1-x0,y1-y0,0,0,c.width,c.height); return c.toDataURL('image/png');
+}
+
+async function addSigner(){
+  const name=$('#sName').value.trim(), pin=$('#sPin').value, pin2=$('#sPin2').value;
+  const draw=document.querySelector('input[name=src]:checked').value==='draw';
+  if(!name) return toast('أدخل الاسم');
+  const url = draw ? (padDirty?padURL():null) : uploadedURL;
+  if(!url) return toast('أضف صورة التوقيع أو ارسمه');
+  if(!pinOk(pin)) return toast('الرقم السري: 8 خانات على الأقل تشمل حروفاً وأرقاماً');
+  if(pin!==pin2) return toast('الرقمان السريان غير متطابقين');
+  $('#addBtn').disabled=true; toast('جارٍ التشفير والحفظ…');
+  try{
+    const sealed = await sealSignature(url, pin);
+    await call('addSigner', {name, position:$('#sPos').value.trim(), org:$('#sOrg').value.trim(), ...sealed});
+    ['#sName','#sPos','#sOrg','#sPin','#sPin2','#sFile'].forEach(s=>$(s).value='');
+    uploadedURL=null; $('#upPrev').style.display='none'; if(pctx) clearPad();
+    await loadSigners(); toast('تم تشفير التوقيع وحفظه');
+  }catch(e){ toast(e.message); }
+  $('#addBtn').disabled=false;
+}
+
+let prevTimer;
+async function previewSigner(id){
+  const s=getSigner(id);
+  const url=await askPin({title:'معاينة توقيع', sub:s.name, verify:pin=>unlockSigner(id,pin,'preview')}); if(!url) return;
+  $('#prevTitle').textContent='توقيع: '+s.name; $('#prevImg').src=url; $('#prevWm').textContent=wmText();
+  $('#prevModal').classList.add('open'); clearTimeout(prevTimer); prevTimer=setTimeout(closePreview,15000);
+}
+function closePreview(){ $('#prevModal').classList.remove('open'); $('#prevImg').removeAttribute('src'); }
+
+async function changePin(id){
+  const s=getSigner(id);
+  const ok=await askPin({title:'تغيير الرقم السري', sub:s.name, change:true, verify:async(pin,np,np2)=>{
+    if(!pinOk(np)) throw new Error('الرقم الجديد: 8 خانات على الأقل تشمل حروفاً وأرقاماً');
+    if(np!==np2) throw new Error('الرقمان الجديدان غير متطابقين');
+    const url = await unlockSigner(id, pin, 'pin-change');
+    const tag = await authTag(pin, s.authSalt, s.iter);
+    const r = await call('changePin', {id, tag, ...(await sealSignature(url, np))});
+    if(!r.ok) throw new Error(r.msg); return true;
+  }});
+  if(ok){ await loadSigners(); toast('تم تغيير الرقم السري'); }
+}
+
+async function deleteSigner(id){
+  const s=getSigner(id);
+  if(!confirm('حذف توقيع "'+s.name+'" نهائياً؟ لن يؤثر ذلك على سجلات التوقيع السابقة.')) return;
+  try{ await call('deleteSigner',{id}); await loadSigners(); toast('تم حذف التوقيع'); }catch(e){ toast(e.message); }
+}
+
+/* ---------- PIN dialog ---------- */
+function askPin({title, sub, change=false, verify}){
+  return new Promise(resolve=>{
+    const m=$('#pinModal'), i1=$('#pinInput'), i2=$('#pinInput2'), i3=$('#pinInput3'), err=$('#pinErr'), ok=$('#pinOk');
+    $('#pinTitle').textContent=title; $('#pinSub').textContent=sub||''; err.textContent='';
+    i1.placeholder = change?'الرقم السري الحالي':'الرقم السري';
+    [i1,i2,i3].forEach(i=>i.value=''); i2.hidden=i3.hidden=!change;
+    m.classList.add('open'); setTimeout(()=>i1.focus(),50);
+    const done=v=>{ m.classList.remove('open'); [i1,i2,i3].forEach(i=>i.value=''); ok.onclick=$('#pinCancel').onclick=null; document.removeEventListener('keydown',key); resolve(v); };
+    const go=async()=>{ if(!i1.value||ok.disabled) return; ok.disabled=true; err.textContent='جارٍ التحقق…';
+      try{ done(await verify(i1.value,i2.value,i3.value)); }catch(e){ err.textContent=e.message||'رقم سري غير صحيح'; i1.select(); }
+      ok.disabled=false; };
+    const key=e=>{ if(e.key==='Enter') go(); if(e.key==='Escape') done(null); };
+    ok.onclick=go; $('#pinCancel').onclick=()=>done(null); document.addEventListener('keydown',key);
+  });
+}
+
+/* ---------- Document ---------- */
+const DEFAULT_BODY = `<p><b>تمهيد:</b> انطلاقاً من رغبة الطرفين في تعزيز أوجه التعاون المشترك وتبادل الخبرات بما يخدم أهدافهما ويحقق المصلحة العامة، فقد اتفق الطرفان، وهما بكامل أهليتهما المعتبرة شرعاً ونظاماً، على ما يلي:</p>
+<h3>المادة الأولى: التمهيد</h3><p>يُعدّ التمهيد السابق جزءاً لا يتجزأ من هذه المذكرة ويُقرأ ويُفسَّر معها.</p>
+<h3>المادة الثانية: الهدف من المذكرة</h3><p>[اكتب الهدف العام من التعاون بين الطرفين].</p>
+<h3>المادة الثالثة: مجالات التعاون</h3><ol><li>[المجال الأول]</li><li>[المجال الثاني]</li><li>[المجال الثالث]</li></ol>
+<h3>المادة الرابعة: التزامات الطرفين</h3><p>يلتزم كل طرف بتسمية منسق لمتابعة تنفيذ هذه المذكرة، وتقديم التسهيلات اللازمة لتحقيق أهدافها وفق الأنظمة واللوائح المعمول بها لدى كل طرف.</p>
+<h3>المادة الخامسة: السرية وحماية البيانات</h3><p>يلتزم الطرفان بالمحافظة على سرية المعلومات والبيانات المتبادلة، وفقاً لنظام حماية البيانات الشخصية في المملكة العربية السعودية والأنظمة ذات العلاقة.</p>
+<h3>المادة السادسة: مدة المذكرة</h3><p>تسري هذه المذكرة لمدة [سنتين] من تاريخ توقيعها، وتُجدَّد تلقائياً ما لم يُخطر أحد الطرفين الآخر كتابياً برغبته في عدم التجديد قبل [ستين] يوماً من انتهائها.</p>
+<h3>المادة السابعة: أحكام عامة</h3><p>لا تُرتِّب هذه المذكرة أي التزامات مالية على أيٍّ من الطرفين، وتُنفَّذ أوجه التعاون بموجب اتفاقيات تنفيذية مستقلة عند الحاجة. حُرِّرت هذه المذكرة من نسختين أصليتين، بيد كل طرف نسخة للعمل بموجبها.</p>`;
+
+const state = { docId:'', sel:{p1:'',p2:''}, signed:{p1:null,p2:null} };
+let dirty=false;
+function setDirty(v){ dirty=v; $('#dirty').hidden=!v; }
+const PARTY = {p1:'الطرف الأول', p2:'الطرف الثاني'};
+
+function docSnapshot(){
+  const norm = s => s.replace(/\s+/g,' ').trim();
+  return JSON.stringify({ title:norm($('#docTitle').textContent), refNo:$('#refNo').value.trim(), date:$('#docDate').value,
+    p1org:$('#p1org').value.trim(), p2org:$('#p2org').value.trim(), body:norm($('#docBody').textContent) });
+}
+const docHash = () => sha256(docSnapshot());
+const ctxFor = async p => ({ docRef:$('#refNo').value.trim(), party:p, docHash:await docHash() });
+
+function renderSigs(){
+  const opts = sel => '<option value="">— اختر صاحب التوقيع —</option>' + signers.map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${esc(s.name)}${s.position?' — '+esc(s.position):''}</option>`).join('');
+  $('#sigs').innerHTML = ['p1','p2'].map(p=>{
+    const sg=state.signed[p], s=getSigner(sg?sg.signerId:state.sel[p]);
+    const name=sg?sg.signerName:(s?.name||''), pos=sg?sg.position:(s?.position||'');
+    let box;
+    if(sg && sg.img) box=`<div class="sigbox protect"><img src="${sg.img}" alt="توقيع" draggable="false"><span class="wm">${esc(wmText())}</span></div><div class="hold no-print">اضغط مع الاستمرار لعرض التوقيع</div>`;
+    else if(sg) box=`<div class="sigbox"><span><i data-lucide="lock"></i> موقّع إلكترونياً — التوقيع مشفّر</span><button class="btn sec sm no-print" onclick="viewSig('${p}')"><i data-lucide="eye"></i> عرض التوقيع (بالرقم السري)</button></div>`;
+    else box='<div class="sigbox"><span class="no-print">التوقيع</span></div>';
+    return `<div class="sig">
+      <div class="who">${PARTY[p]}</div><div class="org">${esc($('#'+p+'org').value)}</div>
+      ${sg?'':`<select class="no-print" onchange="pickSigner('${p}',this.value)">${opts(state.sel[p])}</select>`}
+      <div class="row"><b>الاسم:</b> ${esc(name)}</div>
+      <div class="row"><b>المسمى:</b> ${esc(pos)}</div>
+      ${box}
+      <div class="stamp">${sg?'وُقِّع إلكترونياً: '+fmtDT(sg.at):''}</div>
+      <div class="no-print" style="margin-top:6px">
+        ${sg?`<button class="btn danger sm" onclick="removeSig('${p}')"><i data-lucide="x"></i> إزالة التوقيع</button>`
+            :`<button class="btn sm" onclick="signParty('${p}')" ${s?'':'disabled'}><i data-lucide="pen-line"></i> إدراج التوقيع</button>`}
+      </div></div>`;
+  }).join('');
+  icons();
+}
+function pickSigner(p,id){ state.sel[p]=id; setDirty(true); renderSigs(); }
+
+async function signParty(p){
+  const id=state.sel[p], s=getSigner(id); if(!s) return;
+  const ctx=await ctxFor(p);
+  const url=await askPin({title:'إدراج التوقيع', sub:s.name+' — '+PARTY[p], verify:pin=>unlockSigner(id,pin,'sign',ctx)});
+  if(!url) return;
+  state.signed[p]={signerId:id, signerName:s.name, position:s.position, at:new Date().toISOString(), hash:ctx.docHash, img:url};
+  await refreshLock(); await saveDoc(true); toast('تم إدراج التوقيع وحفظ المذكرة');
+}
+async function viewSig(p){
+  const sg=state.signed[p]; if(!getSigner(sg.signerId)) return toast('صاحب هذا التوقيع لم يعد في السجل');
+  const ctx=await ctxFor(p);
+  const url=await askPin({title:'عرض التوقيع', sub:sg.signerName, verify:pin=>unlockSigner(sg.signerId,pin,'view',ctx)});
+  if(url){ sg.img=url; renderSigs(); }
+}
+async function removeSig(p){
+  const sg=state.signed[p];
+  if(getSigner(sg.signerId)){
+    const ctx=await ctxFor(p);
+    const ok=await askPin({title:'إزالة التوقيع', sub:'أدخل الرقم السري لـ '+sg.signerName, verify:pin=>unlockSigner(sg.signerId,pin,'unsign',ctx).then(()=>true)});
+    if(!ok) return;
+  } else if(!BOOT.isAdmin) return toast('صاحب التوقيع محذوف — تواصل مع مسؤول المنصة');
+  state.signed[p]=null; await refreshLock(); await saveDoc(true); toast('تمت إزالة التوقيع');
+}
+
+async function refreshLock(){
+  const locked=!!(state.signed.p1||state.signed.p2);
+  $('#docWrap').classList.toggle('locked',locked);
+  $('#docTitle').contentEditable=$('#docBody').contentEditable=String(!locked);
+  ['#refNo','#docDate','#p1org','#p2org'].forEach(s=>$(s).disabled=locked);
+  document.querySelectorAll('#rt button').forEach(b=>b.disabled=locked);
+  const h = await docHash();
+  const tampered = ['p1','p2'].some(p=>state.signed[p] && state.signed[p].hash!==h);
+  $('#docWrap').classList.toggle('tampered',tampered);
+  $('#fingerprint').textContent = locked ? 'بصمة المستند (SHA-256): '+h : '';
+  const n=['p1','p2'].filter(p=>state.signed[p]).length;
+  const st=$('#docStatus'); st.className='status '+(n===2?'signed':n===1?'partially-signed':'');
+  st.textContent = n===2?'موقّعة':n===1?'موقّعة جزئياً':'مسودة';
+  renderSigs();
+}
+
+function updateHijri(){
+  const v=$('#docDate').value; if(!v){ $('#hijri').textContent=''; return; }
+  try{ $('#hijri').textContent='الموافق: '+new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric'}).format(new Date(v+'T12:00:00'))+' هـ'; }catch(e){}
+}
+function sanitize(html){
+  const t=document.createElement('template'); t.innerHTML=html;
+  const ok=['P','H3','B','STRONG','U','I','EM','OL','UL','LI','BR','DIV','SPAN'];
+  t.content.querySelectorAll('*').forEach(el=>{ if(!ok.includes(el.tagName)) el.replaceWith(document.createTextNode(el.textContent)); else [...el.attributes].forEach(a=>el.removeAttribute(a.name)); });
+  return t.innerHTML;
+}
+function collectDoc(){
+  const strip = sg => sg ? {signerId:sg.signerId, signerName:sg.signerName, position:sg.position, at:sg.at, hash:sg.hash} : null; // image never leaves the browser
+  return { docId:state.docId, version:VERSION, title:$('#docTitle').textContent.trim(), refNo:$('#refNo').value.trim(), date:$('#docDate').value,
+    p1org:$('#p1org').value, p2org:$('#p2org').value, bodyHTML:sanitize($('#docBody').innerHTML), sel:state.sel,
+    signed:{p1:strip(state.signed.p1), p2:strip(state.signed.p2)} };
+}
+async function applyDoc(d){
+  state.docId=d.docId||'';
+  $('#docTitle').textContent=d.title||'مذكرة تفاهم مشترك'; $('#refNo').value=d.refNo||''; $('#docDate').value=d.date||today();
+  $('#p1org').value=d.p1org??'جامعة سليمان الراجحي'; $('#p2org').value=d.p2org??'[اسم الجهة]';
+  $('#docBody').innerHTML=sanitize(d.bodyHTML||DEFAULT_BODY);
+  state.sel={p1:d.sel?.p1||'', p2:d.sel?.p2||''};
+  state.signed={p1:d.signed?.p1?{...d.signed.p1,img:null}:null, p2:d.signed?.p2?{...d.signed.p2,img:null}:null};
+  updateHijri(); await refreshLock(); setDirty(false);
+}
+async function saveDoc(silent){
+  if(!$('#refNo').value.trim()) return toast('أدخل رقم المذكرة قبل الحفظ');
+  try{
+    const r=await call('saveDoc',{doc:collectDoc()});
+    state.docId=r.docId; setDirty(false); refreshDocs();
+    if(!silent) toast('تم حفظ المذكرة في السجل');
+  }catch(e){ toast(e.message); }
+}
+async function refreshDocs(){
+  try{
+    const list=await call('listDocs'), sel=$('#docList');
+    const label={draft:'مسودة','partially-signed':'موقّعة جزئياً',signed:'موقّعة'};
+    sel.innerHTML='<option value="">📂 فتح مذكرة محفوظة…</option>'+list.map(d=>`<option value="${esc(d.docId)}" ${d.docId===state.docId?'selected':''}>${esc(d.refNo)} — ${esc(d.title)} (${label[d.status]||d.status})</option>`).join('');
+  }catch(e){ toast(e.message); }
+}
+async function openDoc(id){
+  if(!id) return;
+  if(dirty && !confirm('توجد تغييرات غير محفوظة. فتح مذكرة أخرى؟')){ $('#docList').value=state.docId; return; }
+  try{ await applyDoc(await call('loadDoc',{docId:id})); toast('تم فتح المذكرة'); }catch(e){ toast(e.message); }
+}
+async function newDoc(){
+  if(dirty && !confirm('توجد تغييرات غير محفوظة. بدء مذكرة جديدة؟')) return;
+  await applyDoc({refNo:'ICTD-MOU-'+new Date().getFullYear()+'-'}); $('#docList').value=''; $('#refNo').focus();
+}
+function addClause(){
+  const n=$('#docBody').querySelectorAll('h3').length+1;
+  $('#docBody').insertAdjacentHTML('beforeend',`<h3>المادة ${n}: [عنوان المادة]</h3><p>[نص المادة]</p>`); setDirty(true);
+}
+function printDoc(){
+  if(['p1','p2'].some(p=>state.signed[p] && !state.signed[p].img)) toast('للطباعة مع صور التوقيع: اعرض التوقيعات أولاً بالرقم السري');
+  window.print();
+}
+
+document.querySelectorAll('#rt [data-cmd]').forEach(b=>b.addEventListener('mousedown',e=>{ e.preventDefault(); document.execCommand(b.dataset.cmd); setDirty(true); }));
+['#docTitle','#docBody'].forEach(s=>$(s).addEventListener('input',()=>setDirty(true)));
+['#refNo','#p1org','#p2org'].forEach(s=>$(s).addEventListener('input',()=>{ setDirty(true); renderSigs(); }));
+$('#docDate').addEventListener('change',()=>{ updateHijri(); setDirty(true); });
+$('#docBody').addEventListener('paste',e=>{ e.preventDefault(); document.execCommand('insertText',false,(e.clipboardData||window.clipboardData).getData('text/plain')); });
+window.addEventListener('beforeunload',e=>{ if(dirty){ e.preventDefault(); e.returnValue=''; } });
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
+  $('#view-doc').hidden=t.dataset.view!=='doc'; $('#view-register').hidden=t.dataset.view!=='register';
+  if(t.dataset.view==='register' && !$('#srcDraw').hidden) sizePad();
+}));
+
+/* ---------- Screen-capture deterrence (from v1.1) ---------- */
+function wmText(){ return 'للعرض فقط · '+BOOT.email+' · '+new Date().toLocaleString('ar-SA-u-ca-gregory-nu-latn',{dateStyle:'short',timeStyle:'short'}); }
+let shieldT;
+function shield(on,ms){ document.body.classList.toggle('shielded',on); document.querySelectorAll('.protect.reveal').forEach(e=>e.classList.remove('reveal'));
+  clearTimeout(shieldT); if(on&&ms) shieldT=setTimeout(()=>{ if(document.hasFocus()&&!document.hidden) shield(false); },ms); }
+window.addEventListener('blur',()=>shield(true));
+window.addEventListener('focus',()=>shield(false));
+document.addEventListener('visibilitychange',()=>shield(document.hidden));
+document.addEventListener('pointerdown',e=>{ const p=e.target.closest('.protect'); if(p) p.classList.add('reveal'); });
+['pointerup','pointercancel','pointerleave'].forEach(ev=>document.addEventListener(ev,()=>document.querySelectorAll('.protect.reveal').forEach(p=>p.classList.remove('reveal')),true));
+const blocked=e=>{ const k=(e.key||'').toLowerCase();
+  return e.key==='PrintScreen'||e.key==='F12'
+    ||(e.metaKey&&e.shiftKey&&['3','4','5','s'].includes(k))
+    ||((e.ctrlKey||e.metaKey)&&['s','u'].includes(k))
+    ||((e.ctrlKey||e.metaKey)&&e.shiftKey&&['i','j','c'].includes(k)); };
+document.addEventListener('keydown',e=>{ if(blocked(e)){ e.preventDefault(); shield(true,2000); } },true);
+document.addEventListener('keyup',e=>{ if(e.key==='PrintScreen'){ try{ navigator.clipboard.writeText(''); }catch(_){} shield(true,2000); toast('التقاط الشاشة غير مسموح في هذه الصفحة'); } },true);
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('dragstart',e=>{ if(e.target.tagName==='IMG') e.preventDefault(); });
+document.addEventListener('copy',e=>{ if(!e.target.closest||!e.target.closest('input,[contenteditable=true]')) e.preventDefault(); });
+setInterval(()=>document.querySelectorAll('.wm').forEach(w=>w.textContent=wmText()),60000);
+
+/* ---------- Init ---------- */
+document.querySelectorAll('[data-logo]').forEach(el=>{
+  const url=LOGOS[el.dataset.logo];
+  if(url){ const i=new Image(); i.alt=el.dataset.alt; i.src=url; i.onerror=()=>{ i.replaceWith(Object.assign(document.createElement('span'),{className:'logo-fallback',textContent:el.dataset.alt})); }; el.replaceWith(i); }
+  else { el.className='logo-fallback'; el.textContent=el.dataset.alt; }
+});
+$('#userEmail').textContent=BOOT.email; $('#verLbl').textContent=$('#verLbl2').textContent='v'+VERSION; $('#mfLbl').textContent=BOOT.maxFails;
+$('#addCard').hidden=!BOOT.isAdmin; $('#notAdmin').hidden=BOOT.isAdmin;
+if(!window.crypto?.subtle) alert('المتصفح لا يدعم التشفير. استخدم متصفحاً حديثاً.');
+(async()=>{ await applyDoc({refNo:'ICTD-MOU-'+new Date().getFullYear()+'-001'}); await loadSigners(); refreshDocs(); icons(); })();
+</script>
+</body>
+</html>
