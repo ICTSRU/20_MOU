@@ -1,5 +1,17 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
+## v2.5 — 2026-10-21
+- **The PDF now really uses the chosen font.** Previously the capture engine could not load web fonts, so PDFs used a browser fallback font. Pages are now rendered by a built-in renderer (SVG page image with embedded fonts → canvas → jsPDF); html2canvas is no longer needed.
+- **Cairo embedded** (SIL Open Font License, Arabic + Latin, Regular/Bold, ~78 KB) — works offline, no external font link.
+- **Custom PDF font (Users tab → "خط ملف PDF"):** admins can upload a licensed TTF/OTF/WOFF/WOFF2 (e.g. Khaled Bold, ≤3 MB), stored privately in Drive folder `SRU-MoU-Fonts`, and switch between Cairo and the custom font.
+- **"معاينة PDF" button** (toolbar and Users tab): downloads a watermarked preview of the current MoU without saving or sending anything; unsigned parties show "لم يُوقَّع بعد".
+
+## v2.4 — 2026-10-21
+- PDF header line fixed: reference number, Gregorian date and Hijri date are now separate, non-breaking items on one line; English values (reference, date, e-mail) are isolated left-to-right so they no longer split ("ICTD-MOU-" / "2026-03") or overlap the divider.
+- Gregorian date shown as DD/MM/YYYY م in the PDF.
+- Fixed duplicated Hijri suffix ("هـ هـ") in the app header and the PDF.
+- Certificate page: reference number and e-mail rendered left-to-right.
+
 ## v2.3 — 2026-10-21
 - **Root-cause fix** for `SyntaxError: Invalid or unexpected token` (line 457:41) on the live Apps Script deployment, present since v1.9: Apps Script mangled the PDF-library web addresses (`https://…`) written literally inside the script, leaving the string unterminated, so the whole page script stopped and the MoU appeared empty.
 - The CDN address is now assembled at run time; no literal web address remains inside any script. Developer note: never write `https://` URLs as string literals inside `<script>` in Apps Script HTML files.

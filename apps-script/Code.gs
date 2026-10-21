@@ -1,6 +1,6 @@
 /**
  * منصة توقيع مذكرات التفاهم — SRU MoU Signing
- * Google Apps Script backend · v2.3
+ * Google Apps Script backend · v2.5
  *
  * Security model
  *  - Encryption/decryption happens ONLY in the user's browser (Web Crypto).
@@ -36,7 +36,7 @@
  *    parties' representatives and the signature owners, and locks the MoU against unsigning.
  */
 
-const APP_VERSION    = '2.3';
+const APP_VERSION    = '2.5';
 const ALLOWED_DOMAIN = 'sr.edu.sa';
 const MAX_FAILS      = 5;
 const LOCK_MINUTES   = 15;
@@ -189,7 +189,7 @@ function api(action, p, token) {
   ensure_();
   const me = identity_(token);
   p = p || {};
-  const writes = ['setDocAccess','addGlobalViewer','removeGlobalViewer','finalizeDoc','sync','relay','addSigner','unlock','changePin','deleteSigner','saveDoc','addAdmin','removeAdmin','addExternal','setExternalStatus','removeExternal','setGuestUrl','inviteExternal'];
+  const writes = ['setPdfFont','setPdfFontChoice','setDocAccess','addGlobalViewer','removeGlobalViewer','finalizeDoc','sync','relay','addSigner','unlock','changePin','deleteSigner','saveDoc','addAdmin','removeAdmin','addExternal','setExternalStatus','removeExternal','setGuestUrl','inviteExternal'];
   const lock = LockService.getScriptLock();
   const w = writes.indexOf(action) > -1;
   if (w) lock.waitLock(20000);
@@ -216,6 +216,10 @@ function api(action, p, token) {
       case 'removeExternal':    return admin_(me) && removeExternal_(me, p);
       case 'setGuestUrl':       return admin_(me) && setGuestUrl_(p);
       case 'inviteExternal':    return admin_(me) && inviteExternal_(me, p);
+      case 'getPdfFontInfo':    return { choice: prop_('PDF_FONT_CHOICE') || 'cairo', name: prop_('PDF_FONT_NAME') || '' };
+      case 'getPdfFont':        return getPdfFont_();
+      case 'setPdfFont':        return admin_(me) && setPdfFont_(me, p);
+      case 'setPdfFontChoice':  return admin_(me) && setPdfFontChoice_(me, p);
       case 'listDocAccess':     return admin_(me) && listDocAccess_();
       case 'setDocAccess':      return admin_(me) && setDocAccess_(me, p);
       case 'addGlobalViewer':   return admin_(me) && addGlobalViewer_(me, p);
@@ -679,6 +683,46 @@ function inviteExternal_(me, p) {
       '<hr><p style="font-size:12px;color:#6b5a80">You have been invited to the Sulaiman Al Rajhi University MoU Signing Platform. Open the link above and enter your e-mail to receive a one-time sign-in code.</p></div>'
   });
   logAccess_(me.email, 'external-invited:' + r.email);
+  return { ok: true };
+}
+
+/* ======================= PDF font (v2.5) ======================= */
+/** Cairo is embedded in the page; an admin may upload a licensed font (e.g. Khaled Bold) kept privately in Drive. */
+function getPdfFont_() {
+  const choice = prop_('PDF_FONT_CHOICE') || 'cairo', id = prop_('PDF_FONT_ID');
+  if (choice !== 'custom' || !id) return { choice: 'cairo' };
+  const c = cache_(), key = 'pdffont:' + id;
+  let b64 = null;
+  const meta = c.get(key + ':n');
+  if (meta) { const keys = []; for (let i = 0; i < Number(meta); i++) keys.push(key + ':' + i); const parts = c.getAll(keys); if (keys.every(k => parts[k] != null)) b64 = keys.map(k => parts[k]).join(''); }
+  if (!b64) {
+    b64 = Utilities.base64Encode(DriveApp.getFileById(id).getBlob().getBytes());
+    const put = {}, n = Math.ceil(b64.length / RELAY_CHUNK);
+    for (let i = 0; i < n; i++) put[key + ':' + i] = b64.slice(i * RELAY_CHUNK, (i + 1) * RELAY_CHUNK);
+    put[key + ':n'] = String(n);
+    try { c.putAll(put, 21600); } catch (e) {}
+  }
+  return { choice: 'custom', name: prop_('PDF_FONT_NAME') || '', ext: prop_('PDF_FONT_EXT') || 'ttf', b64 };
+}
+function setPdfFont_(me, p) {
+  const ext = String(p.ext || '').toLowerCase();
+  if (['ttf', 'otf', 'woff', 'woff2'].indexOf(ext) === -1) throw new Error('صيغة الخط غير مدعومة (TTF أو OTF أو WOFF أو WOFF2)');
+  if (!isB64_(p.b64, 4200000)) throw new Error('ملف الخط غير صالح أو كبير جداً (الحد 3MB)');
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('FONT_FOLDER_ID')) props.setProperty('FONT_FOLDER_ID', DriveApp.createFolder('SRU-MoU-Fonts').getId());
+  const old = props.getProperty('PDF_FONT_ID');
+  if (old) { try { DriveApp.getFileById(old).setTrashed(true); } catch (e) {} }
+  const name = clean_(p.name, 120) || ('font.' + ext);
+  const file = DriveApp.getFolderById(props.getProperty('FONT_FOLDER_ID')).createFile(Utilities.newBlob(Utilities.base64Decode(p.b64), 'application/octet-stream', name));
+  props.setProperties({ PDF_FONT_ID: file.getId(), PDF_FONT_NAME: name, PDF_FONT_EXT: ext });
+  logAccess_(me.email, 'pdf-font-uploaded:' + name);
+  return { ok: true };
+}
+function setPdfFontChoice_(me, p) {
+  const choice = p.choice === 'custom' ? 'custom' : 'cairo';
+  if (choice === 'custom' && !prop_('PDF_FONT_ID')) throw new Error('ارفع ملف الخط المخصص أولاً');
+  PropertiesService.getScriptProperties().setProperty('PDF_FONT_CHOICE', choice);
+  logAccess_(me.email, 'pdf-font-choice:' + choice);
   return { ok: true };
 }
 
