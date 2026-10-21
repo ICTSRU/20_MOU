@@ -1,5 +1,14 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
+## v1.9 — 2026-10-21
+- **Final signed copy:** when the second party signs, the browser renders an A4 PDF (logos, MoU text, both signatures, document fingerprint) plus an **Electronic Signature Certificate** page, with page numbers.
+- Server archives the PDF in the private Drive folder `SRU-MoU-Final-PDFs`, records SHA-256, finalizer and recipients (new `Documents` columns), and **e-mails it as an attachment** to both representatives, the signature owners and the creator (bilingual e-mail with signing audit table).
+- All open devices refresh and show the "final copy issued" banner with a **Download PDF** button.
+- After finalization the server rejects any edit or unsigning; remove-signature buttons are hidden.
+- If a signature image isn't available on the finalizing device, the PDF uses an e-signature certificate block (user is asked first).
+- PDF engine: manual A4 pagination (breaks between paragraphs, never mid-line) + browser-native text rendering for correct Arabic shaping.
+- `setup` creates the final-PDF folder automatically.
+
 ## v1.8 — 2026-10-21
 - **Live collaboration:** both parties can open the same MoU on different devices; pages sync every 4 s.
 - **"Online now" bar:** names and e-mails of everyone viewing the MoU (guests marked), with the current editor highlighted.

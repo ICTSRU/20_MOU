@@ -122,6 +122,32 @@ tr:nth-child(even) td{background:#fcfbfe}
 .busy{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));display:none;z-index:70}
 .loading .busy{display:block}
 
+/* v1.9: final signed copy */
+.finalbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--ok-bg);color:var(--ok);border:1px solid #b7e2c8;border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-weight:700}
+.finalbar.pending{background:var(--blue-light);color:var(--blue);border-color:#b9dcef}
+.finalbar small{font-weight:400;color:var(--muted)}
+.fdoc-host{position:absolute;left:0;top:0;z-index:-1;width:794px;pointer-events:none}
+.fpage{width:794px;height:1123px;padding:48px 52px 64px;box-sizing:border-box;background:#fff;color:#241436;font-family:'Cairo',Tahoma,Arial,sans-serif;direction:rtl;font-size:13.5px;line-height:1.9;position:relative;overflow:hidden;margin-bottom:20px}
+.fpage .fl{display:flex;justify-content:space-between;align-items:center;height:72px;margin-bottom:6px}
+.fpage .fl img{max-height:66px;max-width:230px;object-fit:contain}
+.fpage h1{text-align:center;font-size:21px;color:#3a1464;margin:6px 0 2px}
+.fpage .fm{text-align:center;color:#6b5a80;font-size:12px;margin-bottom:10px;border-bottom:2px solid #f0ebf8;padding-bottom:8px}
+.fpage .fp2{display:flex;gap:10px;margin-bottom:10px}.fpage .fp2 div{flex:1;background:#f0ebf8;padding:6px 10px;border-radius:4px}
+.fpage h3{font-size:14.5px;color:#501e8c;margin:12px 0 2px}
+.fpage p{margin:0 0 6px;text-align:justify}
+.fpage ol,.fpage ul{margin:0 0 6px}
+.fpage .fsigs{display:flex;gap:14px;margin-top:16px;border-top:2px solid #f0ebf8;padding-top:10px}
+.fpage .f-sig{flex:1;border:1px solid rgba(80,30,140,.18);border-radius:4px;padding:8px;text-align:center}
+.fpage .f-sig .sb{height:96px;display:flex;align-items:center;justify-content:center;border-bottom:1.5px dashed #6b5a80;margin:6px 0}
+.fpage .f-sig .sb img{max-height:90px;max-width:100%}
+.fpage .cert{border:2px solid #1d7a46;color:#1d7a46;border-radius:6px;padding:6px 10px;font-size:11px;font-weight:700;line-height:1.6}
+.fpage .fh{font-size:10px;color:#6b5a80;text-align:center;margin-top:8px;word-break:break-all;direction:ltr}
+.fpage table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
+.fpage th{background:#501e8c;color:#fff;padding:6px;text-align:right}
+.fpage td{border:1px solid rgba(80,30,140,.18);padding:6px;vertical-align:top}
+.fpage .mono{font-family:monospace;direction:ltr;font-size:10.5px;word-break:break-all;text-align:left}
+.fpage .pfoot{position:absolute;left:52px;right:52px;bottom:22px;display:flex;justify-content:space-between;font-size:10px;color:#6b5a80;border-top:1px solid #f0ebf8;padding-top:6px}
+
 /* v1.8: live collaboration */
 .livebar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;margin-bottom:12px;font-size:13px}
 .livedot{width:9px;height:9px;border-radius:50%;background:#bbb;display:inline-block}
@@ -223,6 +249,7 @@ footer img{height:38px}
 
   <div id="docWrap">
     <div class="editbar no-print" id="editbar"></div>
+    <div class="finalbar no-print" id="finalbar" hidden></div>
     <div class="lockbar no-print"><i data-lucide="lock"></i> المستند مقفل للتعديل لأنه يحتوي على توقيع. إزالة أي توقيع تتطلب الرقم السري لصاحبه.</div>
     <div class="tamper no-print"><i data-lucide="alert-triangle"></i> تحذير: محتوى المستند لا يطابق بصمته وقت التوقيع — ربما عُدّل بعد التوقيع.</div>
 
@@ -594,7 +621,7 @@ const DEFAULT_BODY = `<p><b>تمهيد:</b> انطلاقاً من رغبة ال�
 <h3>المادة السادسة: مدة المذكرة</h3><p>تسري هذه المذكرة لمدة [سنتين] من تاريخ توقيعها، وتُجدَّد تلقائياً ما لم يُخطر أحد الطرفين الآخر كتابياً برغبته في عدم التجديد قبل [ستين] يوماً من انتهائها.</p>
 <h3>المادة السابعة: أحكام عامة</h3><p>لا تُرتِّب هذه المذكرة أي التزامات مالية على أيٍّ من الطرفين، وتُنفَّذ أوجه التعاون بموجب اتفاقيات تنفيذية مستقلة عند الحاجة. حُرِّرت هذه المذكرة من نسختين أصليتين، بيد كل طرف نسخة للعمل بموجبها.</p>`;
 
-const state = { docId:'', rev:0, otherEditor:null, sel:{p1:'',p2:''}, signed:{p1:null,p2:null}, logos:{right:'sru', left:''} };
+const state = { final:null, docId:'', rev:0, otherEditor:null, sel:{p1:'',p2:''}, signed:{p1:null,p2:null}, logos:{right:'sru', left:''} };
 const LOGO_OPTS = [['','بدون شعار'],['sru','شعار الجامعة'],['ictd','شعار ICTD'],['itoc','شعار ITOC'],['upload','رفع شعار…']];
 function logoSrc(v){ return !v||v==='none' ? '' : (LOGOS[v] || (v.startsWith('data:image/')?v:'')); }
 function renderLogos(){
@@ -661,7 +688,7 @@ function renderSigs(){
       ${box}
       <div class="stamp">${sg?'وُقِّع إلكترونياً: '+fmtDT(sg.at):''}</div>
       <div class="no-print" style="margin-top:6px">
-        ${sg?`<button class="btn danger sm" onclick="removeSig('${p}')"><i data-lucide="x"></i> إزالة التوقيع</button>`
+        ${sg?(state.final?'<span class="hint">✔ نسخة نهائية</span>':`<button class="btn danger sm" onclick="removeSig('${p}')"><i data-lucide="x"></i> إزالة التوقيع</button>`)
             :`<button class="btn sm" onclick="signParty('${p}')" ${s&&!state.otherEditor?'':'disabled'}><i data-lucide="pen-line"></i> إدراج التوقيع</button>`}
       </div></div>`;
   }).join('');
@@ -675,7 +702,8 @@ async function signParty(p){
   const url=await askPin({title:'إدراج التوقيع', sub:s.name+' — '+PARTY[p], verify:pin=>unlockSigner(id,pin,'sign',ctx)});
   if(!url) return;
   state.signed[p]={signerId:id, signerName:s.name, position:s.position, at:new Date().toISOString(), hash:ctx.docHash, img:url, local:true};
-  await refreshLock(); await saveDoc(true, true); toast('تم إدراج التوقيع وحفظ المذكرة'); pushRelays();
+  await refreshLock(); const sr=await saveDoc(true, true); toast('تم إدراج التوقيع وحفظ المذكرة'); pushRelays();
+  if(sr && sr.status==='signed') setTimeout(()=>finalizeFlow(true), 600);
 }
 async function viewSig(p){
   const sg=state.signed[p]; if(!getSigner(sg.signerId)) return toast('صاحب هذا التوقيع لم يعد في السجل');
@@ -718,7 +746,8 @@ async function refreshLock(){
   $('#fingerprint').textContent = locked ? 'بصمة المستند (SHA-256): '+h : '';
   const n=['p1','p2'].filter(p=>state.signed[p]).length;
   const st=$('#docStatus'); st.className='status '+(n===2?'signed':n===1?'partially-signed':'');
-  st.textContent = n===2?'موقّعة':n===1?'موقّعة جزئياً':'مسودة';
+  st.textContent = n===2?(state.final?'موقّعة — نسخة نهائية':'موقّعة'):n===1?'موقّعة جزئياً':'مسودة';
+  renderFinal(n===2);
   renderSigs();
 }
 
@@ -742,6 +771,7 @@ function collectDoc(){
 async function applyDoc(d){
   if(state.docId!==(d.docId||'')){ live.sent={}; pendingRelays=[]; state.otherEditor=null; if(wantEdit){ releaseEdit=true; wantEdit=false; } }
   const prevSigned = state.docId===(d.docId||'') ? {...state.signed} : null;
+  const prevFinal = state.docId===(d.docId||'') ? state.final : null;
   state.docId=d.docId||'';
   $('#docTitle').textContent=d.title||'مذكرة تفاهم مشترك'; $('#refNo').value=d.refNo||''; $('#docDate').value=d.date||today();
   $('#p1org').value=d.p1org??'جامعة سليمان الراجحي'; $('#p2org').value=d.p2org??'[اسم الجهة]';
@@ -754,7 +784,9 @@ async function applyDoc(d){
     return (o && o.img && o.signerId===n.signerId && o.hash===n.hash) ? {...n, img:o.img, local:o.local} : {...n, img:null}; };
   state.signed={p1:keep('p1'), p2:keep('p2')};
   state.rev = d.rev||0;
+  state.final = d.final||null;
   updateHijri(); await refreshLock(); dirty=false; $('#dirty').hidden=true;
+  if(prevSigned && d.final && !prevFinal) toast('📄 صدرت النسخة النهائية الموقّعة وأُرسلت بالبريد');
   if(prevSigned) ['p1','p2'].forEach(k=>{ if(state.signed[k] && !prevSigned[k]){ toast('✍️ وقّع '+state.signed[k].signerName+' — '+PARTY[k]); const el=$('#sig-'+k); if(el){ el.classList.add('flash'); } } });
   $('#livebar').hidden=!state.docId;
 }
@@ -769,6 +801,7 @@ async function saveDoc(silent, signOnly){
     $('#savedLbl').textContent='✓ حُفظ '+new Date().toLocaleTimeString('ar-SA-u-nu-latn',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     if(isNew || !silent) refreshDocs();
     if(!silent) toast('تم حفظ المذكرة في السجل');
+    return r;
   }catch(e){
     const m=e.message||'';
     if(m.startsWith('CONFLICT|')){ toast(m.split('|')[1]); dirty=false; await reloadLive(); }
@@ -837,6 +870,150 @@ document.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('dragstart',e=>{ if(e.target.tagName==='IMG') e.preventDefault(); });
 document.addEventListener('copy',e=>{ if(!e.target.closest||!e.target.closest('input,[contenteditable=true]')) e.preventDefault(); });
 setInterval(()=>document.querySelectorAll('.wm').forEach(w=>w.textContent=wmText()),60000);
+
+/* ---------- Final signed copy (v1.9) ---------- */
+let libsP=null, finalizing=false;
+function loadScript(src){ return new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src=src; sc.onload=res; sc.onerror=()=>rej(new Error('تعذّر تحميل مكتبة PDF — تحقق من الاتصال')); document.head.appendChild(sc); }); }
+function loadPdfLibs(){
+  return libsP || (libsP = Promise.all([
+    window.html2canvas ? 0 : loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
+    (window.jspdf && window.jspdf.jsPDF) ? 0 : loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+  ]).then(()=>({ h2c:window.html2canvas, JsPDF:window.jspdf.jsPDF })).catch(e=>{ libsP=null; throw e; }));
+}
+function renderFinal(allSigned){
+  const fb=$('#finalbar');
+  document.querySelector('.lockbar').innerHTML = state.final
+    ? '<i data-lucide="lock"></i> المذكرة نهائية: صدرت نسختها الموقّعة ولا يمكن تعديلها أو إزالة التوقيعات.'
+    : '<i data-lucide="lock"></i> المستند مقفل للتعديل لأنه يحتوي على توقيع. إزالة أي توقيع تتطلب الرقم السري لصاحبه.';
+  if(state.final){
+    fb.className='finalbar no-print'; fb.hidden=false;
+    fb.innerHTML=`<span>📄 صدرت النسخة النهائية الموقّعة ${fmtDT(state.final.at)} وأُرسلت إلى:
+      <span class="en">${esc((state.final.sentTo||'').split(',').join('، '))}</span><br>
+      <small>بصمة الملف SHA-256: <span class="en">${esc(state.final.pdfHash)}</span></small></span>
+      <button class="btn sm" onclick="downloadFinal()"><i data-lucide="download"></i> تنزيل PDF</button>`;
+  } else if(allSigned){
+    fb.className='finalbar pending no-print'; fb.hidden=false;
+    fb.innerHTML=`<span>✍️ وقّع الطرفان. أصدر النسخة النهائية بصيغة PDF وأرسلها للطرفين.</span>
+      <button class="btn sm" onclick="finalizeFlow(false)" ${finalizing?'disabled':''}><i data-lucide="file-check"></i> إصدار النسخة النهائية وإرسالها</button>`;
+  } else fb.hidden=true;
+  icons();
+}
+function hijriOf(v){ try{ return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',{day:'numeric',month:'long',year:'numeric'}).format(new Date(v+'T12:00:00'))+' هـ'; }catch(e){ return ''; } }
+/** Returns the final document as two lists of HTML blocks: the MoU itself and the certificate page. */
+async function buildFinalBlocks(){
+  const d=collectDoc(), h=await docHash(), now=new Date();
+  const L=v=>{ const src=logoSrc(v); return src?`<img src="${src}">`:'<span></span>'; };
+  const sig=k=>{
+    const sg=state.signed[k];
+    const box = sg.img ? `<img src="${sg.img}">`
+      : `<div class="cert">✔ موقّع إلكترونياً<br>${esc(sg.signerName)}<br>${fmtDT(sg.at)}<br><span style="font-weight:400">صورة التوقيع محفوظة مشفّرة</span></div>`;
+    return `<div class="f-sig"><div style="font-weight:800;color:#501e8c">${PARTY[k]}</div>
+      <div style="font-size:12px;color:#6b5a80">${esc(d[k+'org'])}</div>
+      <div class="sb">${box}</div>
+      <div><b>${esc(sg.signerName)}</b></div><div style="font-size:12px">${esc(sg.position||'')}</div>
+      <div style="font-size:11px;color:#1d7a46">وُقِّع إلكترونياً: ${fmtDT(sg.at)}</div></div>`;
+  };
+  const row=k=>{ const sg=state.signed[k]; return `<tr><td>${PARTY[k]}<br><small>${esc(d[k+'org'])}</small></td>
+      <td><b>${esc(sg.signerName)}</b><br><small>${esc(sg.position||'')}</small></td><td>${fmtDT(sg.at)}</td>
+      <td>${sg.img?'صورة التوقيع مضمّنة':'شهادة إلكترونية (الصورة مشفّرة)'}</td><td class="mono">${esc(sg.hash)}</td></tr>`; };
+  // Body: split into its top-level blocks so pages break between paragraphs, never mid-line
+  const tmp=document.createElement('div'); tmp.innerHTML=d.bodyHTML;
+  const bodyBlocks=[...tmp.childNodes].map(n=>n.nodeType===1?n.outerHTML:(n.textContent.trim()?`<p>${esc(n.textContent)}</p>`:'')).filter(Boolean);
+  const main=[
+    `<div class="fl">${L(state.logos.right)}${L(state.logos.left)}</div>`,
+    `<h1>${esc(d.title)}</h1>`,
+    `<div class="fm">رقم المذكرة: <b class="en">${esc(d.refNo)}</b> · التاريخ: ${esc(d.date)} ${d.date?'· الموافق '+hijriOf(d.date):''}</div>`,
+    `<div class="fp2"><div><b style="color:#501e8c">الطرف الأول:</b> ${esc(d.p1org)}</div><div><b style="color:#501e8c">الطرف الثاني:</b> ${esc(d.p2org)}</div></div>`,
+    ...bodyBlocks,
+    `<div class="fsigs">${sig('p1')}${sig('p2')}</div><div class="fh">Document fingerprint (SHA-256): ${h}</div>`
+  ];
+  const cert=[
+    `<div class="fl">${L('sru')}${L('ictd')}</div>`,
+    `<h1>شهادة التوقيع الإلكتروني</h1><div class="fm" style="direction:ltr">Electronic Signature Certificate</div>`,
+    `<table>
+      <tr><td style="width:30%">عنوان المذكرة</td><td>${esc(d.title)}</td></tr>
+      <tr><td>رقم المذكرة</td><td class="en">${esc(d.refNo)}</td></tr>
+      <tr><td>بصمة المحتوى (SHA-256)</td><td class="mono">${h}</td></tr>
+      <tr><td>تاريخ الإصدار</td><td>${fmtDT(now)} — توقيت الرياض</td></tr>
+      <tr><td>صدرت بواسطة</td><td class="en">${esc(BOOT.email)}</td></tr>
+      <tr><td>المنصة</td><td>منصة توقيع مذكرات التفاهم — الإصدار <span class="en">v${VERSION}</span></td></tr>
+    </table>`,
+    `<table><tr><th>الطرف</th><th>الموقّع</th><th>وقت التوقيع</th><th>صورة التوقيع</th><th>بصمة المستند وقت التوقيع</th></tr>${row('p1')}${row('p2')}</table>`,
+    `<p style="margin-top:12px;font-size:11.5px;color:#6b5a80">
+      • تتطابق بصمة المستند وقت التوقيع مع بصمة المحتوى أعلاه، ما يؤكد أن النص لم يُعدَّل بعد التوقيع.<br>
+      • صور التوقيعات محفوظة لدى الجامعة مشفّرة بخوارزمية AES-256-GCM، ولا تُعرض إلا بالرقم السري لصاحبها.<br>
+      • تُسجَّل كل عملية توقيع (البريد، التاريخ، الوقت) في سجل تدقيق المنصة، وتُحفظ نسخة أرشيفية من هذا الملف.</p>`,
+    `<div class="fh" style="margin-top:18px">Sulaiman Al Rajhi University — Executive Directorate of Communications &amp; Information Technology</div>`
+  ];
+  return { main, cert, refNo:d.refNo };
+}
+/** Lays blocks out on fixed A4 pages (794×1123 px), moving a block to the next page when it doesn't fit. */
+function paginate(host, blocks){
+  const pages=[]; let page=null;
+  const newPage=()=>{ page=document.createElement('div'); page.className='fpage'; const body=document.createElement('div'); body.className='fbody'; page.appendChild(body); host.appendChild(page); pages.push(page); return body; };
+  let body=newPage();
+  const limit=1123-48-64;
+  for(const html of blocks){
+    const t=document.createElement('template'); t.innerHTML=html.trim();
+    const nodes=[...t.content.childNodes];
+    nodes.forEach(n=>body.appendChild(n));
+    if(body.scrollHeight>limit && body.childNodes.length>nodes.length){
+      nodes.forEach(n=>n.remove()); body=newPage(); nodes.forEach(n=>body.appendChild(n));
+    }
+  }
+  return pages;
+}
+async function generatePdfB64(){
+  const {h2c, JsPDF}=await loadPdfLibs();
+  const {main, cert, refNo}=await buildFinalBlocks();
+  const host=document.createElement('div'); host.className='fdoc-host'; document.body.appendChild(host);
+  const sx=window.scrollX, sy=window.scrollY;
+  try{
+    const pages=[...paginate(host, main), ...paginate(host, cert)];
+    pages.forEach((pg,i)=>{ const f=document.createElement('div'); f.className='pfoot';
+      f.innerHTML=`<span>صفحة ${i+1} من ${pages.length}</span><span class="en">${esc(refNo)}</span><span>جامعة سليمان الراجحي</span>`; pg.appendChild(f); });
+    await Promise.all([...host.querySelectorAll('img')].map(i=>i.complete?0:new Promise(r=>{ i.onload=i.onerror=r; })));
+    if(document.fonts && document.fonts.ready) await document.fonts.ready;
+    window.scrollTo(0,0);
+    const pdf=new JsPDF({unit:'mm', format:'a4', orientation:'portrait', compress:true});
+    for(let i=0;i<pages.length;i++){
+      host.replaceChildren(pages[i]);            // capture one page at a time, pinned to the top-left corner
+      await new Promise(r=>requestAnimationFrame(()=>r()));
+      const r=pages[i].getBoundingClientRect();
+      const canvas=await h2c(pages[i], {scale:2, backgroundColor:'#ffffff', foreignObjectRendering:true, useCORS:true,
+        x:r.left+window.scrollX, y:r.top+window.scrollY, width:794, height:1123, scrollX:0, scrollY:0, windowWidth:document.documentElement.clientWidth});
+      if(i) pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+    }
+    return pdf.output('datauristring').split(',')[1];
+  } finally { host.remove(); window.scrollTo(sx, sy); }
+}
+async function finalizeFlow(auto){
+  if(finalizing || !state.docId || state.final) return;
+  if(!(state.signed.p1 && state.signed.p2)) return;
+  const missing=['p1','p2'].filter(k=>!state.signed[k].img).map(k=>state.signed[k].signerName);
+  if(missing.length && !confirm('صورة توقيع ('+missing.join('، ')+') غير متاحة على هذا الجهاز.\n'
+      +'ستُضمَّن في الملف شهادة توقيع إلكتروني بدلاً من الصورة.\n\nإصدار النسخة النهائية وإرسالها الآن؟')){
+    toast('يمكنك الإصدار لاحقاً من زر "إصدار النسخة النهائية"'); return;
+  }
+  if(!auto && !missing.length && !confirm('إصدار النسخة النهائية بصيغة PDF وإرسالها للطرفين؟ بعدها لا يمكن إزالة التوقيعات.')) return;
+  finalizing=true; renderFinal(true); toast('جارٍ إنشاء النسخة النهائية PDF…');
+  try{
+    const pdf=await generatePdfB64();
+    const r=await call('finalizeDoc', {docId:state.docId, pdf});
+    toast(r.already ? 'صدرت النسخة النهائية مسبقاً' : ('📄 صدرت النسخة النهائية وأُرسلت إلى '+(r.sentTo||[]).length+' مستلم'));
+    await reloadLive();
+  }catch(e){ toast(e.message); }
+  finalizing=false; renderFinal(!!(state.signed.p1&&state.signed.p2));
+}
+async function downloadFinal(){
+  try{
+    const r=await call('getFinalPdf', {docId:state.docId});
+    const bin=atob(r.b64), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([u],{type:'application/pdf'})); a.download=r.name;
+    document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  }catch(e){ toast(e.message); }
+}
 
 /* ---------- Live collaboration (v1.8) ---------- */
 let wantEdit=false, releaseEdit=false, lastEditTs=0, liveBusy=false, liveTimer=null, pendingRelays=[];

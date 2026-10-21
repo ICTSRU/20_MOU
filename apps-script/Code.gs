@@ -1,6 +1,6 @@
 /**
  * منصة توقيع مذكرات التفاهم — SRU MoU Signing
- * Google Apps Script backend · v1.8
+ * Google Apps Script backend · v1.9
  *
  * Security model
  *  - Encryption/decryption happens ONLY in the user's browser (Web Crypto).
@@ -21,9 +21,15 @@
  *  - A freshly inserted signature is shown to the other viewers through an END-TO-END encrypted
  *    relay (ECDH P-256 + AES-GCM between browsers). The server only forwards ciphertext it cannot
  *    read; relays live in CacheService (max 6 h) and are deleted once delivered.
+ *
+ * Final copy (v1.9)
+ *  - When the second party signs, that browser (which holds the decrypted signatures) renders the final
+ *    A4 PDF with a signature-certificate page and calls `finalizeDoc`.
+ *  - The server archives the PDF in a private Drive folder, records its SHA-256, e-mails it to both
+ *    parties' representatives and the signature owners, and locks the MoU against unsigning.
  */
 
-const APP_VERSION    = '1.8';
+const APP_VERSION    = '1.9';
 const ALLOWED_DOMAIN = 'sr.edu.sa';
 const MAX_FAILS      = 5;
 const LOCK_MINUTES   = 15;
@@ -34,11 +40,12 @@ const MAX_LOGO_CHARS = 45000; // a logo must fit in one Sheet cell
 const LIVE_TTL_MS    = 15000; // a viewer disappears from "online now" after 15 s without a heartbeat
 const EDIT_TTL_MS    = 20000; // edit lock expires after 20 s without a heartbeat
 const RELAY_CHUNK    = 90000; // CacheService value limit is 100 KB
+const MAX_PDF_B64    = 24000000; // ~18 MB PDF (Gmail attachment limit is 25 MB)
 
 const SH = { SIGNERS:'Signers', DOCS:'Documents', SIGNINGS:'SigningLog', ACCESS:'AccessLog', ADMINS:'Admins', EXT:'Externals' };
 const HEAD = {
   Signers:    ['id','name','position','org','fileId','encSalt','encIv','iter','authSalt','authHash','fails','lockUntil','status','createdBy','createdAt','updatedAt','ownerEmail'],
-  Documents:  ['docId','refNo','title','status','json','createdBy','createdAt','updatedBy','updatedAt','logoRight','logoLeft','externalEmails','rev'],
+  Documents:  ['docId','refNo','title','status','json','createdBy','createdAt','updatedBy','updatedAt','logoRight','logoLeft','externalEmails','rev','finalPdfId','finalizedAt','finalizedBy','pdfHash','sentTo'],
   SigningLog: ['timestamp','date','time','email','action','signerId','signerName','docRef','party','docHash','result'],
   AccessLog:  ['email','date','time','action'],
   Admins:     ['email','name','addedAt'],
@@ -67,6 +74,7 @@ function setup() {
   const props = PropertiesService.getScriptProperties();
   if (!props.getProperty('FOLDER_ID')) props.setProperty('FOLDER_ID', DriveApp.createFolder('SRU-MoU-Signatures-Encrypted').getId());
   if (!props.getProperty('PEPPER'))    props.setProperty('PEPPER', Utilities.getUuid() + Utilities.getUuid());
+  if (!props.getProperty('FINAL_FOLDER_ID')) props.setProperty('FINAL_FOLDER_ID', DriveApp.createFolder('SRU-MoU-Final-PDFs').getId());
 
   const me = norm_(Session.getEffectiveUser().getEmail());
   if (!rows_(SH.ADMINS).some(r => norm_(r.email) === me)) append_(SH.ADMINS, { email: me, name: 'Owner', addedAt: new Date().toISOString() });
@@ -173,7 +181,7 @@ function api(action, p, token) {
   ensure_();
   const me = identity_(token);
   p = p || {};
-  const writes = ['sync','relay','addSigner','unlock','changePin','deleteSigner','saveDoc','addAdmin','removeAdmin','addExternal','setExternalStatus','removeExternal','setGuestUrl','inviteExternal'];
+  const writes = ['finalizeDoc','sync','relay','addSigner','unlock','changePin','deleteSigner','saveDoc','addAdmin','removeAdmin','addExternal','setExternalStatus','removeExternal','setGuestUrl','inviteExternal'];
   const lock = LockService.getScriptLock();
   const w = writes.indexOf(action) > -1;
   if (w) lock.waitLock(20000);
@@ -189,6 +197,8 @@ function api(action, p, token) {
       case 'saveDoc':           return saveDoc_(me, p);
       case 'sync':              return sync_(me, p);
       case 'relay':             return relay_(me, p);
+      case 'finalizeDoc':       return finalizeDoc_(me, p);
+      case 'getFinalPdf':       return getFinalPdf_(me, p);
       // ---- admin ----
       case 'listUsers':         return admin_(me) && listUsers_();
       case 'addAdmin':          return admin_(me) && addAdmin_(me, p);
@@ -325,12 +335,14 @@ function loadDoc_(me, docId) {
   d.logoRight = String(r.logoRight || '');
   d.logoLeft  = String(r.logoLeft || '');
   d.rev = Number(r.rev) || 0;
+  d.final = r.finalPdfId ? { at: String(r.finalizedAt), by: String(r.finalizedBy), pdfHash: String(r.pdfHash), sentTo: String(r.sentTo) } : null;
   return d;
 }
 
 function saveDoc_(me, p) {
   let d = p.doc || {};
   const existing = d.docId ? rows_(SH.DOCS).find(x => x.docId === d.docId) : null;
+  if (existing && existing.finalPdfId) throw new Error('المذكرة نهائية — صدرت نسختها الموقّعة ولا يمكن تعديلها أو إزالة التوقيعات.');
   if (existing && !me.external) {
     // Optimistic concurrency: refuse to overwrite a newer version saved by someone else
     if (p.baseRev !== undefined && p.baseRev !== null && Number(existing.rev || 0) !== Number(p.baseRev))
@@ -364,7 +376,7 @@ function saveDoc_(me, p) {
   d.docId = existing ? existing.docId : Utilities.getUuid();
 
   const logoRight = cleanLogo_(d.logoRight), logoLeft = cleanLogo_(d.logoLeft);
-  delete d.logoRight; delete d.logoLeft; delete d.rev;
+  delete d.logoRight; delete d.logoLeft; delete d.rev; delete d.final;
   const emails = [d.p1email, d.p2email].map(norm_).filter(e => e && !e.endsWith('@' + ALLOWED_DOMAIN)).join(',');
   const json = JSON.stringify(d);
   if (json.length > 48000) throw new Error('نص المذكرة طويل جداً للحفظ (الحد ~48 ألف حرف)');
@@ -384,6 +396,76 @@ function cleanLogo_(v) {
   if (['', 'none', 'sru', 'ictd', 'itoc'].indexOf(v) > -1) return v;
   if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v) && v.length <= MAX_LOGO_CHARS) return v;
   throw new Error('صورة الشعار غير صالحة أو كبيرة جداً');
+}
+
+/* ======================= Final signed copy ======================= */
+function finalizeDoc_(me, p) {
+  const r = rows_(SH.DOCS).find(x => x.docId === p.docId);
+  if (!r || !docVisible_(me, r)) throw new Error('المذكرة غير موجودة أو غير مصرّح بها');
+  if (r.status !== 'signed') throw new Error('لا يمكن إصدار النسخة النهائية قبل توقيع الطرفين');
+  if (r.finalPdfId && !(p.resend && !me.external && me.isAdmin)) return { ok: true, already: true, at: String(r.finalizedAt) };
+  if (!isB64_(p.pdf, MAX_PDF_B64)) throw new Error('ملف PDF غير صالح أو كبير جداً');
+  const bytes = Utilities.base64Decode(p.pdf);
+  if (String.fromCharCode.apply(null, bytes.slice(0, 5).map(b => (b + 256) % 256)) !== '%PDF-') throw new Error('الملف ليس PDF');
+
+  const d = JSON.parse(r.json);
+  const name = (clean_(r.refNo, 60) || 'MoU').replace(/[^\w\u0600-\u06FF.-]+/g, '-') + '-signed.pdf';
+  const pdfHash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes)
+    .map(b => ((b + 256) % 256).toString(16).padStart(2, '0')).join('');
+  const blob = Utilities.newBlob(bytes, 'application/pdf', name);
+  let file;
+  if (r.finalPdfId) { try { DriveApp.getFileById(r.finalPdfId).setTrashed(true); } catch (e) {} }
+  file = DriveApp.getFolderById(prop_('FINAL_FOLDER_ID')).createFile(blob);
+
+  // Recipients: party representatives + signature owners + document creator
+  const signers = rows_(SH.SIGNERS);
+  const owner = id => { const s = signers.find(x => x.id === id); return s ? norm_(s.ownerEmail) : ''; };
+  const valid = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
+  const to = [norm_(d.p1email), norm_(d.p2email), owner(d.signed && d.signed.p1 && d.signed.p1.signerId),
+              owner(d.signed && d.signed.p2 && d.signed.p2.signerId), norm_(r.createdBy)]
+    .filter((e, i, a) => e && valid(e) && a.indexOf(e) === i);
+
+  const audit = rows_(SH.SIGNINGS).filter(x => x.docRef === r.refNo && x.action === 'sign' && x.result === 'success');
+  const now = new Date().toISOString(), s = stamp_();
+  const partyRow = k => {
+    const sg = d.signed && d.signed[k]; if (!sg) return '';
+    const a = audit.filter(x => x.party === k && x.signerId === sg.signerId).pop();
+    return '<tr><td style="padding:6px;border:1px solid #ddd">' + (k === 'p1' ? 'الطرف الأول' : 'الطرف الثاني') + '<br><small>' + esc_(d[k + 'org']) + '</small></td>' +
+      '<td style="padding:6px;border:1px solid #ddd"><b>' + esc_(sg.signerName) + '</b><br><small>' + esc_(sg.position || '') + '</small></td>' +
+      '<td style="padding:6px;border:1px solid #ddd">' + (a ? esc_(a.date + ' ' + a.time) : esc_(sg.at)) + '<br><small dir="ltr">' + esc_(a ? a.email : '') + '</small></td></tr>';
+  };
+  const html =
+    '<div dir="rtl" style="font-family:Tahoma,Arial;color:#241436;max-width:640px">' +
+    '<h3 style="color:#3a1464;margin-bottom:4px">تم توقيع مذكرة التفاهم من الطرفين</h3>' +
+    '<p style="margin-top:0;color:#6b5a80">' + esc_(r.title) + ' — رقم <b dir="ltr">' + esc_(r.refNo) + '</b></p>' +
+    '<table style="border-collapse:collapse;font-size:13px;width:100%"><tr style="background:#501e8c;color:#fff">' +
+    '<th style="padding:6px">الطرف</th><th style="padding:6px">الموقّع</th><th style="padding:6px">وقت التوقيع (توقيت الرياض)</th></tr>' +
+    partyRow('p1') + partyRow('p2') + '</table>' +
+    '<p style="font-size:12px;color:#6b5a80">بصمة الملف المرفق (SHA-256):<br><span dir="ltr" style="font-family:monospace">' + pdfHash + '</span></p>' +
+    '<p>مرفق النسخة النهائية الموقّعة بصيغة PDF، وتُحفظ نسخة أرشيفية لدى الجامعة.</p>' +
+    '<hr><p style="font-size:12px;color:#6b5a80" dir="ltr">The Memorandum of Understanding <b>' + esc_(r.refNo) + '</b> has been signed by both parties. ' +
+    'The final signed PDF is attached (SHA-256 above).</p>' +
+    '<p style="font-size:12px;color:#6b5a80">جامعة سليمان الراجحي — الإدارة التنفيذية للاتصالات وتقنية المعلومات<br>Sulaiman Al Rajhi University — Executive Directorate of Communications &amp; IT</p></div>';
+
+  if (to.length) MailApp.sendEmail({
+    to: to.join(','),
+    subject: 'تم توقيع مذكرة التفاهم ' + r.refNo + ' — النسخة النهائية | MoU fully signed',
+    htmlBody: html, attachments: [blob], name: 'منصة توقيع مذكرات التفاهم — SRU'
+  });
+
+  const rev = Number(r.rev || 0) + 1;   // bump revision so every open page refreshes and shows the final banner
+  update_(SH.DOCS, r._row, { finalPdfId: file.getId(), finalizedAt: now, finalizedBy: me.email, pdfHash, sentTo: to.join(','), rev: String(rev) });
+  cache_().put('rev:' + r.docId, String(rev), 21600);
+  logSign_(me.email, { action: p.resend ? 'final-resent' : 'finalized', docRef: r.refNo, docHash: pdfHash.slice(0, 64), result: 'sent:' + to.length });
+  return { ok: true, at: now, sentTo: to, pdfHash, date: s.date };
+}
+
+function getFinalPdf_(me, p) {
+  const r = rows_(SH.DOCS).find(x => x.docId === p.docId);
+  if (!r || !docVisible_(me, r) || !r.finalPdfId) throw new Error('لا توجد نسخة نهائية لهذه المذكرة');
+  const f = DriveApp.getFileById(r.finalPdfId);
+  logSign_(me.email, { action: 'final-downloaded', docRef: r.refNo, result: 'success' });
+  return { name: f.getName(), b64: Utilities.base64Encode(f.getBlob().getBytes()) };
 }
 
 /* ======================= Live collaboration ======================= */
