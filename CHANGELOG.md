@@ -1,5 +1,9 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
+## v2.3 — 2026-10-21
+- **Root-cause fix** for `SyntaxError: Invalid or unexpected token` (line 457:41) on the live Apps Script deployment, present since v1.9: Apps Script mangled the PDF-library web addresses (`https://…`) written literally inside the script, leaving the string unterminated, so the whole page script stopped and the MoU appeared empty.
+- The CDN address is now assembled at run time; no literal web address remains inside any script. Developer note: never write `https://` URLs as string literals inside `<script>` in Apps Script HTML files.
+
 ## v2.2 — 2026-10-21
 - Fix: `SyntaxError: Invalid or unexpected token` on the live deployment that stopped the page before the MoU loaded.
 - All scripts in `Index.html` are now **ASCII-only**: Arabic text and emoji inside JavaScript are written as `\uXXXX` escapes (displayed identically), so copy/paste or storage in the Apps Script editor can no longer corrupt them.

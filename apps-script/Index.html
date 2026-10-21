@@ -502,7 +502,7 @@ footer img{height:38px}
 <script>
 'use strict';
 /* ---------- Start-up diagnostics (v2.1): never fail silently ---------- */
-const CLIENT_VERSION = '2.2';
+const CLIENT_VERSION = '2.3';
 /* ---------- Boot data injected by Apps Script ---------- */
 let BOOT = <?!= boot ?>;
 const VERSION = BOOT.version;
@@ -953,10 +953,12 @@ const canSign = () => state.role!=='viewer';
 /* ---------- Final signed copy (v1.9) ---------- */
 let libsP=null, finalizing=false;
 function loadScript(src){ return new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src=src; sc.onload=res; sc.onerror=()=>rej(new Error('\u062a\u0639\u0630\u0651\u0631 \u062a\u062d\u0645\u064a\u0644 \u0645\u0643\u062a\u0628\u0629 PDF \u2014 \u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u0627\u062a\u0635\u0627\u0644')); document.head.appendChild(sc); }); }
+/* Apps Script mangles web addresses written literally inside a script, so the CDN address is assembled at run time. */
+const CDN = ['https:', '', 'cdnjs.cloudflare.com', 'ajax', 'libs'].join('/');
 function loadPdfLibs(){
   return libsP || (libsP = Promise.all([
-    window.html2canvas ? 0 : loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'),
-    (window.jspdf && window.jspdf.jsPDF) ? 0 : loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js')
+    window.html2canvas ? 0 : loadScript(CDN + '/html2canvas/1.4.1/html2canvas.min.js'),
+    (window.jspdf && window.jspdf.jsPDF) ? 0 : loadScript(CDN + '/jspdf/2.5.1/jspdf.umd.min.js')
   ]).then(()=>({ h2c:window.html2canvas, JsPDF:window.jspdf.jsPDF })).catch(e=>{ libsP=null; throw e; }));
 }
 function renderFinal(allSigned){
@@ -1312,7 +1314,7 @@ if(BOOT.needsLogin){
   if(t && b){ TOKEN=t; BOOT=b; startApp(); } else { $('#login').hidden=false; }
 } else startApp();
 icons();
-window.__MOU_MAIN_OK = true; // end-of-file marker (v2.2)
+window.__MOU_MAIN_OK = true; /* end-of-file marker */
 </script>
 </body>
 </html>

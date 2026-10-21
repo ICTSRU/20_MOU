@@ -1,6 +1,6 @@
 /**
  * منصة توقيع مذكرات التفاهم — SRU MoU Signing
- * Google Apps Script backend · v2.2
+ * Google Apps Script backend · v2.3
  *
  * Security model
  *  - Encryption/decryption happens ONLY in the user's browser (Web Crypto).
@@ -36,7 +36,7 @@
  *    parties' representatives and the signature owners, and locks the MoU against unsigning.
  */
 
-const APP_VERSION    = '2.2';
+const APP_VERSION    = '2.3';
 const ALLOWED_DOMAIN = 'sr.edu.sa';
 const MAX_FAILS      = 5;
 const LOCK_MINUTES   = 15;
