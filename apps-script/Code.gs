@@ -1,6 +1,6 @@
 /**
  * منصة توقيع مذكرات التفاهم — SRU MoU Signing
- * Google Apps Script backend · v1.7
+ * Google Apps Script backend · v1.8
  *
  * Security model
  *  - Encryption/decryption happens ONLY in the user's browser (Web Crypto).
@@ -14,9 +14,16 @@
  *  - University deployment: "Anyone within Sulaiman Al Rajhi University" → Google identity (@sr.edu.sa).
  *  - Guest deployment:      "Anyone"  → external users listed in the Externals sheet sign in
  *                           with a one-time code sent to their e-mail.
+ *
+ * Live collaboration (v1.8)
+ *  - Each open page polls `sync` every few seconds: revision number, who is online, who is editing.
+ *  - One editor at a time (soft edit lock); everyone else sees changes after each autosave.
+ *  - A freshly inserted signature is shown to the other viewers through an END-TO-END encrypted
+ *    relay (ECDH P-256 + AES-GCM between browsers). The server only forwards ciphertext it cannot
+ *    read; relays live in CacheService (max 6 h) and are deleted once delivered.
  */
 
-const APP_VERSION    = '1.7';
+const APP_VERSION    = '1.8';
 const ALLOWED_DOMAIN = 'sr.edu.sa';
 const MAX_FAILS      = 5;
 const LOCK_MINUTES   = 15;
@@ -24,11 +31,14 @@ const TZ             = 'Asia/Riyadh';
 const SESSION_HOURS  = 6;     // external session length (CacheService max = 6h)
 const OTP_MINUTES    = 10;
 const MAX_LOGO_CHARS = 45000; // a logo must fit in one Sheet cell
+const LIVE_TTL_MS    = 15000; // a viewer disappears from "online now" after 15 s without a heartbeat
+const EDIT_TTL_MS    = 20000; // edit lock expires after 20 s without a heartbeat
+const RELAY_CHUNK    = 90000; // CacheService value limit is 100 KB
 
 const SH = { SIGNERS:'Signers', DOCS:'Documents', SIGNINGS:'SigningLog', ACCESS:'AccessLog', ADMINS:'Admins', EXT:'Externals' };
 const HEAD = {
   Signers:    ['id','name','position','org','fileId','encSalt','encIv','iter','authSalt','authHash','fails','lockUntil','status','createdBy','createdAt','updatedAt','ownerEmail'],
-  Documents:  ['docId','refNo','title','status','json','createdBy','createdAt','updatedBy','updatedAt','logoRight','logoLeft','externalEmails'],
+  Documents:  ['docId','refNo','title','status','json','createdBy','createdAt','updatedBy','updatedAt','logoRight','logoLeft','externalEmails','rev'],
   SigningLog: ['timestamp','date','time','email','action','signerId','signerName','docRef','party','docHash','result'],
   AccessLog:  ['email','date','time','action'],
   Admins:     ['email','name','addedAt'],
@@ -163,7 +173,7 @@ function api(action, p, token) {
   ensure_();
   const me = identity_(token);
   p = p || {};
-  const writes = ['addSigner','unlock','changePin','deleteSigner','saveDoc','addAdmin','removeAdmin','addExternal','setExternalStatus','removeExternal','setGuestUrl','inviteExternal'];
+  const writes = ['sync','relay','addSigner','unlock','changePin','deleteSigner','saveDoc','addAdmin','removeAdmin','addExternal','setExternalStatus','removeExternal','setGuestUrl','inviteExternal'];
   const lock = LockService.getScriptLock();
   const w = writes.indexOf(action) > -1;
   if (w) lock.waitLock(20000);
@@ -177,6 +187,8 @@ function api(action, p, token) {
       case 'listDocs':          return listDocs_(me);
       case 'loadDoc':           return loadDoc_(me, p.docId);
       case 'saveDoc':           return saveDoc_(me, p);
+      case 'sync':              return sync_(me, p);
+      case 'relay':             return relay_(me, p);
       // ---- admin ----
       case 'listUsers':         return admin_(me) && listUsers_();
       case 'addAdmin':          return admin_(me) && addAdmin_(me, p);
@@ -312,12 +324,21 @@ function loadDoc_(me, docId) {
   const d = JSON.parse(r.json);
   d.logoRight = String(r.logoRight || '');
   d.logoLeft  = String(r.logoLeft || '');
+  d.rev = Number(r.rev) || 0;
   return d;
 }
 
 function saveDoc_(me, p) {
   let d = p.doc || {};
   const existing = d.docId ? rows_(SH.DOCS).find(x => x.docId === d.docId) : null;
+  if (existing && !me.external) {
+    // Optimistic concurrency: refuse to overwrite a newer version saved by someone else
+    if (p.baseRev !== undefined && p.baseRev !== null && Number(existing.rev || 0) !== Number(p.baseRev))
+      throw new Error('CONFLICT|تم تعديل المذكرة من مستخدم آخر — تم تحميل أحدث نسخة، راجعها ثم أعد المحاولة.');
+    const ed = JSON.parse(cache_().get('edit:' + existing.docId) || 'null');
+    if (ed && ed.email !== me.email && Date.now() - ed.ts < EDIT_TTL_MS && !p.signOnly)
+      throw new Error('CONFLICT|يقوم ' + ed.email + ' بتحرير المذكرة الآن — انتظر حتى ينتهي.');
+  }
 
   if (me.external) {
     // Guests cannot create or edit documents — they may only add/remove THEIR OWN signature.
@@ -343,16 +364,19 @@ function saveDoc_(me, p) {
   d.docId = existing ? existing.docId : Utilities.getUuid();
 
   const logoRight = cleanLogo_(d.logoRight), logoLeft = cleanLogo_(d.logoLeft);
-  delete d.logoRight; delete d.logoLeft;
+  delete d.logoRight; delete d.logoLeft; delete d.rev;
   const emails = [d.p1email, d.p2email].map(norm_).filter(e => e && !e.endsWith('@' + ALLOWED_DOMAIN)).join(',');
   const json = JSON.stringify(d);
   if (json.length > 48000) throw new Error('نص المذكرة طويل جداً للحفظ (الحد ~48 ألف حرف)');
 
+  const rev = (existing ? Number(existing.rev || 0) : 0) + 1;
+  delete d.rev;
   const rec = { docId: d.docId, refNo: clean_(d.refNo, 60), title: clean_(d.title, 200), status, json,
-                updatedBy: me.email, updatedAt: now, logoRight, logoLeft, externalEmails: emails };
+                updatedBy: me.email, updatedAt: now, logoRight, logoLeft, externalEmails: emails, rev: String(rev) };
   if (existing) update_(SH.DOCS, existing._row, rec);
   else append_(SH.DOCS, Object.assign(rec, { createdBy: me.email, createdAt: now }));
-  return { ok: true, docId: d.docId, status };
+  cache_().put('rev:' + d.docId, String(rev), 21600);
+  return { ok: true, docId: d.docId, status, rev };
 }
 
 function cleanLogo_(v) {
@@ -360,6 +384,104 @@ function cleanLogo_(v) {
   if (['', 'none', 'sru', 'ictd', 'itoc'].indexOf(v) > -1) return v;
   if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(v) && v.length <= MAX_LOGO_CHARS) return v;
   throw new Error('صورة الشعار غير صالحة أو كبيرة جداً');
+}
+
+/* ======================= Live collaboration ======================= */
+function cache_() { return CacheService.getScriptCache(); }
+
+/** Ensures the caller may see this document (cached 5 min per user). Returns current revision. */
+function liveDoc_(me, docId) {
+  const c = cache_();
+  const aclKey = 'acl:' + docId + ':' + me.email;
+  let rev = c.get('rev:' + docId);
+  if (rev === null || c.get(aclKey) !== '1') {
+    const r = rows_(SH.DOCS).find(x => x.docId === docId);
+    if (!r || !docVisible_(me, r)) throw new Error('المذكرة غير موجودة أو غير مصرّح بها');
+    rev = String(Number(r.rev) || 0);
+    c.put('rev:' + docId, rev, 21600);
+    c.put(aclKey, '1', 300);
+  }
+  return Number(rev);
+}
+
+function sync_(me, p) {
+  const docId = clean_(p.docId, 64);
+  if (!docId) return { rev: 0, editor: null, presence: [], relays: [] };
+  const rev = liveDoc_(me, docId);
+  const c = cache_(), now = Date.now(), pk = 'pres:' + docId, ek = 'edit:' + docId;
+
+  const pres = JSON.parse(c.get(pk) || '{}');
+  Object.keys(pres).forEach(e => { if (now - pres[e].ts > LIVE_TTL_MS) delete pres[e]; });
+  if (p.leave) delete pres[me.email];
+  else {
+    const mine = pres[me.email] || { name: displayName_(me), external: me.external };
+    mine.ts = now;
+    if (isJwk_(p.pub)) mine.pub = { kty: 'EC', crv: 'P-256', x: p.pub.x, y: p.pub.y };
+    pres[me.email] = mine;
+  }
+
+  let ed = JSON.parse(c.get(ek) || 'null');
+  if (ed && (now - ed.ts > EDIT_TTL_MS || !pres[ed.email])) ed = null;
+  if (!me.external && p.wantEdit && !p.leave && (!ed || ed.email === me.email)) ed = { email: me.email, ts: now };
+  if (ed && ed.email === me.email && (p.releaseEdit || p.leave)) ed = null;
+  if (ed) c.put(ek, JSON.stringify(ed), 60); else c.remove(ek);
+  c.put(pk, JSON.stringify(pres), 120);
+
+  return {
+    rev, editor: ed ? ed.email : null,
+    presence: Object.keys(pres).map(e => ({ email: e, name: pres[e].name, external: !!pres[e].external, pub: pres[e].pub || null, self: e === me.email })),
+    relays: p.leave ? [] : takeRelays_(docId, me.email)
+  };
+}
+
+/** Forward an end-to-end encrypted signature image to another online viewer. */
+function relay_(me, p) {
+  const docId = clean_(p.docId, 64), to = norm_(p.to), party = p.party === 'p2' ? 'p2' : 'p1';
+  liveDoc_(me, docId);
+  const pres = JSON.parse(cache_().get('pres:' + docId) || '{}');
+  if (!pres[me.email] || !pres[to] || to === me.email) throw new Error('المستلم غير متصل بالمذكرة');
+  if (!isB64_(p.iv, 64) || !isB64_(p.ct, 1200000) || !isJwk_(p.fromPub)) throw new Error('بيانات غير صالحة');
+  const c = cache_(), base = 'rly:' + docId + ':' + to + ':' + party, put = {};
+  const n = Math.ceil(p.ct.length / RELAY_CHUNK);
+  for (let i = 0; i < n; i++) put[base + ':' + i] = p.ct.slice(i * RELAY_CHUNK, (i + 1) * RELAY_CHUNK);
+  put[base + ':m'] = JSON.stringify({ from: me.email, fromName: pres[me.email].name, party, iv: p.iv, n,
+    fromPub: { kty: 'EC', crv: 'P-256', x: p.fromPub.x, y: p.fromPub.y },
+    signerId: clean_(p.signerId, 64), hash: clean_(p.hash, 64) });
+  c.putAll(put, 21600);
+  const ik = 'rlyidx:' + docId + ':' + to, idx = JSON.parse(c.get(ik) || '[]');
+  if (idx.indexOf(party) === -1) idx.push(party);
+  c.put(ik, JSON.stringify(idx), 21600);
+  return { ok: true };
+}
+
+function takeRelays_(docId, to) {
+  const c = cache_(), ik = 'rlyidx:' + docId + ':' + to, idx = JSON.parse(c.get(ik) || '[]');
+  if (!idx.length) return [];
+  const out = [];
+  idx.forEach(party => {
+    const base = 'rly:' + docId + ':' + to + ':' + party, metaRaw = c.get(base + ':m');
+    if (!metaRaw) return;
+    const m = JSON.parse(metaRaw), keys = [];
+    for (let i = 0; i < m.n; i++) keys.push(base + ':' + i);
+    const parts = c.getAll(keys);
+    if (keys.some(k => parts[k] == null)) return;
+    m.ct = keys.map(k => parts[k]).join('');
+    out.push(m);
+    c.removeAll(keys.concat([base + ':m']));
+  });
+  c.remove(ik);
+  return out;
+}
+
+function displayName_(me) {
+  if (me.external) { const x = rows_(SH.EXT).find(r => norm_(r.email) === me.email); if (x && x.name) return String(x.name); }
+  const a = rows_(SH.ADMINS).find(r => norm_(r.email) === me.email);
+  if (a && a.name && a.name !== 'Owner') return String(a.name);
+  return me.email.split('@')[0];
+}
+function isJwk_(k) {
+  return !!k && typeof k === 'object' && typeof k.x === 'string' && typeof k.y === 'string' &&
+    /^[A-Za-z0-9_-]{30,60}$/.test(k.x) && /^[A-Za-z0-9_-]{30,60}$/.test(k.y);
 }
 
 /* ======================= Users (admin) ======================= */

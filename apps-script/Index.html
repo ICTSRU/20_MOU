@@ -122,6 +122,21 @@ tr:nth-child(even) td{background:#fcfbfe}
 .busy{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));display:none;z-index:70}
 .loading .busy{display:block}
 
+/* v1.8: live collaboration */
+.livebar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;margin-bottom:12px;font-size:13px}
+.livedot{width:9px;height:9px;border-radius:50%;background:#bbb;display:inline-block}
+.livedot.on{background:#1d9a55;box-shadow:0 0 0 3px rgba(29,154,85,.18);animation:pulse 2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(29,154,85,.05)}}
+.viewer{display:inline-flex;align-items:center;gap:5px;background:var(--purple-light);color:var(--purple-dark);border-radius:20px;padding:2px 10px;font-weight:600}
+.viewer .em{font-weight:400;color:var(--muted);font-size:11px}
+.viewer.ed{background:#fff3d6;color:#7a4b00}
+.viewer.me{outline:1px solid var(--purple)}
+.editbar{display:none;background:#fff3d6;color:#7a4b00;border:1px solid #f1d38a;border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-weight:700}
+.otherediting .editbar{display:block}
+.saved{font-size:12px;color:var(--muted)}
+.flash{animation:flash 1.6s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 4px rgba(29,154,85,.55)}100%{box-shadow:0 0 0 0 rgba(29,154,85,0)}}
+
 /* v1.7: MoU logos, users, guest login */
 .logos-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
 .logo-slot{width:200px;max-width:42%;text-align:center}
@@ -146,7 +161,7 @@ footer img{height:38px}
 @media print{
   @page{size:A4;margin:16mm}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .no-print,.topbar,.toolbar,.rt,.lockbar,.tamper,footer,.diag,.hold,.wm,.shield,.busy,.login{display:none!important}
+  .no-print,.topbar,.toolbar,.rt,.lockbar,.tamper,footer,.diag,.hold,.wm,.shield,.busy,.login,.livebar,.editbar{display:none!important}
   .logo-slot select{display:none!important}
   #view-users{display:none!important}
   .wrap{padding:0;max-width:none}
@@ -197,9 +212,17 @@ footer img{height:38px}
     <button class="btn danger" onclick="newDoc()"><i data-lucide="file-plus"></i> مذكرة جديدة</button>
     <span id="docStatus" class="status">مسودة</span>
     <span id="dirty" class="dirty" hidden>● تغييرات غير محفوظة</span>
+    <span id="savedLbl" class="saved"></span>
+  </div>
+
+  <div class="livebar no-print" id="livebar" hidden>
+    <span class="livedot" id="liveDot"></span><b>مباشر</b>
+    <span style="color:var(--muted)">· المتصفحون الآن:</span>
+    <span id="viewers"></span>
   </div>
 
   <div id="docWrap">
+    <div class="editbar no-print" id="editbar"></div>
     <div class="lockbar no-print"><i data-lucide="lock"></i> المستند مقفل للتعديل لأنه يحتوي على توقيع. إزالة أي توقيع تتطلب الرقم السري لصاحبه.</div>
     <div class="tamper no-print"><i data-lucide="alert-triangle"></i> تحذير: محتوى المستند لا يطابق بصمته وقت التوقيع — ربما عُدّل بعد التوقيع.</div>
 
@@ -571,11 +594,11 @@ const DEFAULT_BODY = `<p><b>تمهيد:</b> انطلاقاً من رغبة ال�
 <h3>المادة السادسة: مدة المذكرة</h3><p>تسري هذه المذكرة لمدة [سنتين] من تاريخ توقيعها، وتُجدَّد تلقائياً ما لم يُخطر أحد الطرفين الآخر كتابياً برغبته في عدم التجديد قبل [ستين] يوماً من انتهائها.</p>
 <h3>المادة السابعة: أحكام عامة</h3><p>لا تُرتِّب هذه المذكرة أي التزامات مالية على أيٍّ من الطرفين، وتُنفَّذ أوجه التعاون بموجب اتفاقيات تنفيذية مستقلة عند الحاجة. حُرِّرت هذه المذكرة من نسختين أصليتين، بيد كل طرف نسخة للعمل بموجبها.</p>`;
 
-const state = { docId:'', sel:{p1:'',p2:''}, signed:{p1:null,p2:null}, logos:{right:'sru', left:''} };
+const state = { docId:'', rev:0, otherEditor:null, sel:{p1:'',p2:''}, signed:{p1:null,p2:null}, logos:{right:'sru', left:''} };
 const LOGO_OPTS = [['','بدون شعار'],['sru','شعار الجامعة'],['ictd','شعار ICTD'],['itoc','شعار ITOC'],['upload','رفع شعار…']];
 function logoSrc(v){ return !v||v==='none' ? '' : (LOGOS[v] || (v.startsWith('data:image/')?v:'')); }
 function renderLogos(){
-  const locked = !!(state.signed.p1||state.signed.p2) || BOOT.external;
+  const locked = !!(state.signed.p1||state.signed.p2) || BOOT.external || !!state.otherEditor;
   [['right','#slotRight','يمين'],['left','#slotLeft','يسار']].forEach(([side,sel,lbl])=>{
     const v=state.logos[side], src=logoSrc(v);
     const cur = LOGOS[v]!==undefined||!v ? v : 'custom';
@@ -601,7 +624,16 @@ function pickLogo(side, v){
   inp.click(); setTimeout(renderLogos,300);
 }
 let dirty=false;
-function setDirty(v){ dirty=v; $('#dirty').hidden=!v; }
+function setDirty(v){
+  dirty=v; $('#dirty').hidden=!v;
+  if(v){ lastEditTs=Date.now(); if(!wantEdit){ wantEdit=true; liveTick(true); } scheduleAutosave(); }
+}
+let autoT=null;
+function scheduleAutosave(){
+  clearTimeout(autoT);
+  if(!state.docId || BOOT.external) return;            // new documents are saved manually the first time
+  autoT=setTimeout(()=>{ if(dirty && !state.otherEditor) saveDoc(true); }, 2500);
+}
 const PARTY = {p1:'الطرف الأول', p2:'الطرف الثاني'};
 
 function docSnapshot(){
@@ -621,16 +653,16 @@ function renderSigs(){
     if(sg && sg.img) box=`<div class="sigbox protect"><img src="${sg.img}" alt="توقيع" draggable="false"><span class="wm">${esc(wmText())}</span></div><div class="hold no-print">اضغط مع الاستمرار لعرض التوقيع</div>`;
     else if(sg) box=`<div class="sigbox"><span><i data-lucide="lock"></i> موقّع إلكترونياً — التوقيع مشفّر</span><button class="btn sec sm no-print" onclick="viewSig('${p}')"><i data-lucide="eye"></i> عرض التوقيع (بالرقم السري)</button></div>`;
     else box='<div class="sigbox"><span class="no-print">التوقيع</span></div>';
-    return `<div class="sig">
+    return `<div class="sig" id="sig-${p}">
       <div class="who">${PARTY[p]}</div><div class="org">${esc($('#'+p+'org').value)}</div>
-      ${sg?'':`<select class="no-print" onchange="pickSigner('${p}',this.value)">${opts(state.sel[p])}</select>`}
+      ${sg?'':`<select class="no-print" onchange="pickSigner('${p}',this.value)" ${state.otherEditor?'disabled':''}>${opts(state.sel[p])}</select>`}
       <div class="row"><b>الاسم:</b> ${esc(name)}</div>
       <div class="row"><b>المسمى:</b> ${esc(pos)}</div>
       ${box}
       <div class="stamp">${sg?'وُقِّع إلكترونياً: '+fmtDT(sg.at):''}</div>
       <div class="no-print" style="margin-top:6px">
         ${sg?`<button class="btn danger sm" onclick="removeSig('${p}')"><i data-lucide="x"></i> إزالة التوقيع</button>`
-            :`<button class="btn sm" onclick="signParty('${p}')" ${s?'':'disabled'}><i data-lucide="pen-line"></i> إدراج التوقيع</button>`}
+            :`<button class="btn sm" onclick="signParty('${p}')" ${s&&!state.otherEditor?'':'disabled'}><i data-lucide="pen-line"></i> إدراج التوقيع</button>`}
       </div></div>`;
   }).join('');
   icons();
@@ -642,14 +674,14 @@ async function signParty(p){
   const ctx=await ctxFor(p);
   const url=await askPin({title:'إدراج التوقيع', sub:s.name+' — '+PARTY[p], verify:pin=>unlockSigner(id,pin,'sign',ctx)});
   if(!url) return;
-  state.signed[p]={signerId:id, signerName:s.name, position:s.position, at:new Date().toISOString(), hash:ctx.docHash, img:url};
-  await refreshLock(); await saveDoc(true); toast('تم إدراج التوقيع وحفظ المذكرة');
+  state.signed[p]={signerId:id, signerName:s.name, position:s.position, at:new Date().toISOString(), hash:ctx.docHash, img:url, local:true};
+  await refreshLock(); await saveDoc(true, true); toast('تم إدراج التوقيع وحفظ المذكرة'); pushRelays();
 }
 async function viewSig(p){
   const sg=state.signed[p]; if(!getSigner(sg.signerId)) return toast('صاحب هذا التوقيع لم يعد في السجل');
   const ctx=await ctxFor(p);
   const url=await askPin({title:'عرض التوقيع', sub:sg.signerName, verify:pin=>unlockSigner(sg.signerId,pin,'view',ctx)});
-  if(url){ sg.img=url; renderSigs(); }
+  if(url){ sg.img=url; sg.local=true; renderSigs(); pushRelays(); }
 }
 async function removeSig(p){
   const sg=state.signed[p];
@@ -658,7 +690,7 @@ async function removeSig(p){
     const ok=await askPin({title:'إزالة التوقيع', sub:'أدخل الرقم السري لـ '+sg.signerName, verify:pin=>unlockSigner(sg.signerId,pin,'unsign',ctx).then(()=>true)});
     if(!ok) return;
   } else if(!BOOT.isAdmin) return toast('صاحب التوقيع محذوف — تواصل مع مسؤول المنصة');
-  state.signed[p]=null; await refreshLock(); await saveDoc(true); toast('تمت إزالة التوقيع');
+  state.signed[p]=null; await refreshLock(); await saveDoc(true, true); toast('تمت إزالة التوقيع');
 }
 
 async function refreshLock(){
@@ -668,6 +700,16 @@ async function refreshLock(){
   ['#refNo','#docDate','#p1org','#p2org'].forEach(s=>$(s).disabled=locked);
   document.querySelectorAll('#rt button').forEach(b=>b.disabled=locked);
   ['#p1email','#p2email'].forEach(s=>$(s).disabled=locked||BOOT.external);
+  if(locked && wantEdit){ wantEdit=false; releaseEdit=true; }   // a signed document can't be edited → free the edit lock
+  const oe = locked ? null : state.otherEditor;
+  $('#docWrap').classList.toggle('otherediting', !!oe);
+  if(oe){
+    const v=(live.presence||[]).find(x=>x.email===oe);
+    $('#editbar').innerHTML='✏️ يقوم <b>'+esc(v?v.name:oe)+'</b> <span class="en">('+esc(oe)+')</span> بتحرير المذكرة الآن — ستظهر تعديلاته لديك تلقائياً.';
+    $('#docTitle').contentEditable=$('#docBody').contentEditable='false';
+    ['#refNo','#docDate','#p1org','#p2org','#p1email','#p2email'].forEach(s=>$(s).disabled=true);
+    document.querySelectorAll('#rt button').forEach(b=>b.disabled=true);
+  }
   if(BOOT.external){ $('#docTitle').contentEditable=$('#docBody').contentEditable='false'; ['#refNo','#docDate','#p1org','#p2org'].forEach(s=>$(s).disabled=true); }
   renderLogos();
   const h = await docHash();
@@ -698,6 +740,8 @@ function collectDoc(){
     signed:{p1:strip(state.signed.p1), p2:strip(state.signed.p2)} };
 }
 async function applyDoc(d){
+  if(state.docId!==(d.docId||'')){ live.sent={}; pendingRelays=[]; state.otherEditor=null; if(wantEdit){ releaseEdit=true; wantEdit=false; } }
+  const prevSigned = state.docId===(d.docId||'') ? {...state.signed} : null;
   state.docId=d.docId||'';
   $('#docTitle').textContent=d.title||'مذكرة تفاهم مشترك'; $('#refNo').value=d.refNo||''; $('#docDate').value=d.date||today();
   $('#p1org').value=d.p1org??'جامعة سليمان الراجحي'; $('#p2org').value=d.p2org??'[اسم الجهة]';
@@ -705,17 +749,31 @@ async function applyDoc(d){
   state.logos={ right: d.logoRight!==undefined ? d.logoRight : 'sru', left: d.logoLeft||'' };
   $('#docBody').innerHTML=sanitize(d.bodyHTML||DEFAULT_BODY);
   state.sel={p1:d.sel?.p1||'', p2:d.sel?.p2||''};
-  state.signed={p1:d.signed?.p1?{...d.signed.p1,img:null}:null, p2:d.signed?.p2?{...d.signed.p2,img:null}:null};
-  updateHijri(); await refreshLock(); setDirty(false);
+  const prev = prevSigned || {};
+  const keep = (k) => { const n=d.signed?.[k]; if(!n) return null; const o=prev[k];
+    return (o && o.img && o.signerId===n.signerId && o.hash===n.hash) ? {...n, img:o.img, local:o.local} : {...n, img:null}; };
+  state.signed={p1:keep('p1'), p2:keep('p2')};
+  state.rev = d.rev||0;
+  updateHijri(); await refreshLock(); dirty=false; $('#dirty').hidden=true;
+  if(prevSigned) ['p1','p2'].forEach(k=>{ if(state.signed[k] && !prevSigned[k]){ toast('✍️ وقّع '+state.signed[k].signerName+' — '+PARTY[k]); const el=$('#sig-'+k); if(el){ el.classList.add('flash'); } } });
+  $('#livebar').hidden=!state.docId;
 }
-async function saveDoc(silent){
+async function saveDoc(silent, signOnly){
   if(BOOT.external && !state.docId) return toast('لا يمكن للضيف إنشاء مذكرة');
   if(!$('#refNo').value.trim()) return toast('أدخل رقم المذكرة قبل الحفظ');
   try{
-    const r=await call('saveDoc',{doc:collectDoc()});
-    state.docId=r.docId; setDirty(false); refreshDocs();
+    clearTimeout(autoT);
+    const isNew=!state.docId;
+    const r=await call('saveDoc',{doc:collectDoc(), baseRev:state.docId?state.rev:null, signOnly:!!signOnly});
+    state.docId=r.docId; state.rev=r.rev; dirty=false; $('#dirty').hidden=true; $('#livebar').hidden=false;
+    $('#savedLbl').textContent='✓ حُفظ '+new Date().toLocaleTimeString('ar-SA-u-nu-latn',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    if(isNew || !silent) refreshDocs();
     if(!silent) toast('تم حفظ المذكرة في السجل');
-  }catch(e){ toast(e.message); }
+  }catch(e){
+    const m=e.message||'';
+    if(m.startsWith('CONFLICT|')){ toast(m.split('|')[1]); dirty=false; await reloadLive(); }
+    else toast(m);
+  }
 }
 async function refreshDocs(){
   try{
@@ -727,7 +785,7 @@ async function refreshDocs(){
 async function openDoc(id){
   if(!id) return;
   if(dirty && !confirm('توجد تغييرات غير محفوظة. فتح مذكرة أخرى؟')){ $('#docList').value=state.docId; return; }
-  try{ await applyDoc(await call('loadDoc',{docId:id})); toast('تم فتح المذكرة'); }catch(e){ toast(e.message); }
+  try{ await applyDoc(await call('loadDoc',{docId:id})); toast('تم فتح المذكرة'); liveTick(true); }catch(e){ toast(e.message); }
 }
 async function newDoc(){
   if(dirty && !confirm('توجد تغييرات غير محفوظة. بدء مذكرة جديدة؟')) return;
@@ -779,6 +837,97 @@ document.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('dragstart',e=>{ if(e.target.tagName==='IMG') e.preventDefault(); });
 document.addEventListener('copy',e=>{ if(!e.target.closest||!e.target.closest('input,[contenteditable=true]')) e.preventDefault(); });
 setInterval(()=>document.querySelectorAll('.wm').forEach(w=>w.textContent=wmText()),60000);
+
+/* ---------- Live collaboration (v1.8) ---------- */
+let wantEdit=false, releaseEdit=false, lastEditTs=0, liveBusy=false, liveTimer=null, pendingRelays=[];
+const live={ presence:[], editor:null, sent:{}, ok:false };
+let ECDH=null, PUBJWK=null;
+async function liveKeys(){
+  if(ECDH) return;
+  ECDH=await crypto.subtle.generateKey({name:'ECDH', namedCurve:'P-256'}, false, ['deriveKey']);
+  const j=await crypto.subtle.exportKey('jwk', ECDH.publicKey); PUBJWK={kty:'EC', crv:'P-256', x:j.x, y:j.y};
+}
+async function sharedKey(jwk){
+  const pub=await crypto.subtle.importKey('jwk', {kty:'EC', crv:'P-256', x:jwk.x, y:jwk.y, ext:true}, {name:'ECDH', namedCurve:'P-256'}, false, []);
+  return crypto.subtle.deriveKey({name:'ECDH', public:pub}, ECDH.privateKey, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+/** Background call without the loading bar. */
+function callQuiet(action, payload){
+  return new Promise((res, rej)=>google.script.run.withSuccessHandler(res).withFailureHandler(e=>rej(new Error(e&&e.message?e.message:String(e)))).api(action, payload||{}, TOKEN));
+}
+function startLive(){ if(!liveTimer) liveTimer=setInterval(()=>liveTick(false), 4000); }
+async function liveTick(force){
+  if(!state.docId || liveBusy || (document.hidden && !force)) return;
+  liveBusy=true;
+  try{
+    await liveKeys();
+    if(wantEdit && !dirty && Date.now()-lastEditTs>15000){ wantEdit=false; releaseEdit=true; }
+    const r=await callQuiet('sync', {docId:state.docId, pub:PUBJWK, wantEdit, releaseEdit});
+    releaseEdit=false; live.ok=true; live.presence=r.presence; live.editor=r.editor;
+    const other = r.editor && r.editor!==BOOT.email ? r.editor : null;
+    if(other!==state.otherEditor){ state.otherEditor=other; if(other){ wantEdit=false; } await refreshLock(); }
+    renderPresence();
+    if(r.rev>state.rev && !(dirty && r.editor===BOOT.email)) await reloadLive();
+    pendingRelays.push(...r.relays);
+    await processRelays();
+    await pushRelays();
+  }catch(e){ live.ok=false; renderPresence(); }
+  liveBusy=false;
+}
+async function reloadLive(){
+  if(!state.docId) return;
+  try{ const d=await callQuiet('loadDoc',{docId:state.docId}); await applyDoc(d); renderSigs(); }catch(e){}
+}
+function renderPresence(){
+  $('#liveDot').classList.toggle('on', live.ok);
+  $('#viewers').innerHTML = (live.presence||[]).map(v=>`<span class="viewer ${v.email===live.editor?'ed':''} ${v.self?'me':''}" title="${esc(v.email)}">
+      <i data-lucide="${v.external?'user-round':'user'}"></i>${esc(v.name)} <span class="em en">${esc(v.email)}</span>
+      ${v.self?'<span class="em">(أنت)</span>':''}${v.external?'<span class="em">· ضيف</span>':''}${v.email===live.editor?' ✏️':''}</span>`).join(' ');
+  icons();
+}
+async function processRelays(){
+  const left=[];
+  for(const m of pendingRelays){
+    const sg=state.signed[m.party];
+    if(!sg || sg.signerId!==m.signerId || sg.hash!==m.hash){ if((m._tries=(m._tries||0)+1)<5) left.push(m); continue; }
+    if(sg.img) continue;
+    try{
+      const key=await sharedKey(m.fromPub);
+      const pt=await crypto.subtle.decrypt({name:'AES-GCM', iv:fromB64(m.iv)}, key, fromB64(m.ct));
+      sg.img=td.decode(pt); renderSigs();
+      const el=$('#sig-'+m.party); if(el){ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+      toast('✍️ ظهر توقيع '+sg.signerName+' (مشارَك بتشفير طرفي من '+m.fromName+')');
+    }catch(e){}
+  }
+  pendingRelays=left;
+}
+/** Send a signature I decrypted in this session to every other online viewer, encrypted for that viewer only. */
+async function pushRelays(){
+  if(!ECDH) return;
+  for(const p of ['p1','p2']){
+    const sg=state.signed[p]; if(!sg || !sg.img || !sg.local) continue;
+    for(const v of live.presence||[]){
+      if(v.self || !v.pub) continue;
+      const k=p+'|'+sg.signerId+'|'+v.email+'|'+v.pub.x; if(live.sent[k]) continue;
+      try{
+        const iv=rand(12), key=await sharedKey(v.pub);
+        const ct=await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, te.encode(sg.img));
+        await callQuiet('relay', {docId:state.docId, to:v.email, party:p, iv:toB64(iv), ct:toB64(ct), fromPub:PUBJWK, signerId:sg.signerId, hash:sg.hash});
+        live.sent[k]=1;
+      }catch(e){}
+    }
+  }
+}
+// Edit gate: ask for the edit lock as soon as the user focuses something editable
+document.addEventListener('focusin', e=>{
+  if(BOOT.external || !state.docId) return;
+  if(!e.target.closest('#docWrap')) return;
+  if(!e.target.matches('input,select,[contenteditable=true]')) return;
+  if(state.otherEditor){ e.target.blur(); toast('المذكرة قيد التحرير من مستخدم آخر'); return; }
+  lastEditTs=Date.now(); if(!wantEdit){ wantEdit=true; liveTick(true); }
+});
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) liveTick(true); });
+window.addEventListener('pagehide', ()=>{ try{ if(state.docId) google.script.run.api('sync',{docId:state.docId, leave:true}, TOKEN); }catch(_){} });
 
 /* ---------- Users (admins) ---------- */
 async function loadUsers(){
@@ -848,7 +997,7 @@ async function startApp(){
   if(!BOOT.isAdmin){ $('#sName').value=BOOT.name||''; $('#sOrg').value=BOOT.org||''; }
   document.querySelectorAll('.toolbar .btn.danger, #rt').forEach(el=>el.hidden=BOOT.external);
   await applyDoc({refNo:'ICTD-MOU-'+new Date().getFullYear()+'-001'});
-  await loadSigners(); await refreshDocs(); icons();
+  await loadSigners(); await refreshDocs(); icons(); startLive();
   if(BOOT.external) toast('اختر المذكرة المطلوبة من قائمة "فتح مذكرة محفوظة"');
 }
 if(BOOT.needsLogin){

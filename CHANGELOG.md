@@ -1,5 +1,14 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
+## v1.8 — 2026-10-21
+- **Live collaboration:** both parties can open the same MoU on different devices; pages sync every 4 s.
+- **"Online now" bar:** names and e-mails of everyone viewing the MoU (guests marked), with the current editor highlighted.
+- **Auto-refresh + autosave:** edits autosave 2.5 s after typing stops and appear on the other device automatically.
+- **Single editor lock:** the first person to edit holds a soft lock; others become read-only with a banner; lock frees after inactivity or when the MoU is signed.
+- **Signature appears instantly on the other device** via an end-to-end encrypted relay (ECDH P-256 + AES-GCM between browsers); the server forwards ciphertext only and keeps nothing on disk.
+- **Conflict protection:** revision number per MoU (`rev` column); stale saves are rejected and the latest version is loaded.
+- Visual cue (toast + flash) when the other party signs.
+
 ## v1.7 — 2026-10-21
 - **Users tab (admins):** add/remove platform admins; add, disable, delete and e-mail-invite external users.
 - **External (guest) access:** guests listed in the new `Externals` sheet sign in through a second "Anyone" deployment with a one-time 6-digit code e-mailed to them (10-minute expiry, 5 tries, rate-limited, 6-hour session).
