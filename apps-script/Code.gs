@@ -1,6 +1,6 @@
 /**
  * منصة توقيع مذكرات التفاهم — SRU MoU Signing
- * Google Apps Script backend · v1.9
+ * Google Apps Script backend · v2.1
  *
  * Security model
  *  - Encryption/decryption happens ONLY in the user's browser (Web Crypto).
@@ -22,6 +22,13 @@
  *    relay (ECDH P-256 + AES-GCM between browsers). The server only forwards ciphertext it cannot
  *    read; relays live in CacheService (max 6 h) and are deleted once delivered.
  *
+ * Access control (v2.0) — per MoU
+ *  - admin  : Admins sheet → everything
+ *  - editor : creator or listed in `editors` → view, edit, sign, finalize
+ *  - signer : party representative (p1email/p2email) → view + add/remove own signature only
+ *  - viewer : listed in `viewers` or in the GlobalViewers sheet (all MoUs) → read-only
+ *  - anyone else → the MoU is invisible (not listed, cannot be opened or synced)
+ *
  * Final copy (v1.9)
  *  - When the second party signs, that browser (which holds the decrypted signatures) renders the final
  *    A4 PDF with a signature-certificate page and calls `finalizeDoc`.
@@ -29,7 +36,7 @@
  *    parties' representatives and the signature owners, and locks the MoU against unsigning.
  */
 
-const APP_VERSION    = '1.9';
+const APP_VERSION    = '2.1';
 const ALLOWED_DOMAIN = 'sr.edu.sa';
 const MAX_FAILS      = 5;
 const LOCK_MINUTES   = 15;
@@ -42,14 +49,15 @@ const EDIT_TTL_MS    = 20000; // edit lock expires after 20 s without a heartbea
 const RELAY_CHUNK    = 90000; // CacheService value limit is 100 KB
 const MAX_PDF_B64    = 24000000; // ~18 MB PDF (Gmail attachment limit is 25 MB)
 
-const SH = { SIGNERS:'Signers', DOCS:'Documents', SIGNINGS:'SigningLog', ACCESS:'AccessLog', ADMINS:'Admins', EXT:'Externals' };
+const SH = { SIGNERS:'Signers', DOCS:'Documents', SIGNINGS:'SigningLog', ACCESS:'AccessLog', ADMINS:'Admins', EXT:'Externals', GV:'GlobalViewers' };
 const HEAD = {
   Signers:    ['id','name','position','org','fileId','encSalt','encIv','iter','authSalt','authHash','fails','lockUntil','status','createdBy','createdAt','updatedAt','ownerEmail'],
-  Documents:  ['docId','refNo','title','status','json','createdBy','createdAt','updatedBy','updatedAt','logoRight','logoLeft','externalEmails','rev','finalPdfId','finalizedAt','finalizedBy','pdfHash','sentTo'],
+  Documents:  ['docId','refNo','title','status','json','createdBy','createdAt','updatedBy','updatedAt','logoRight','logoLeft','externalEmails','rev','finalPdfId','finalizedAt','finalizedBy','pdfHash','sentTo','editors','viewers','partyEmails'],
   SigningLog: ['timestamp','date','time','email','action','signerId','signerName','docRef','party','docHash','result'],
   AccessLog:  ['email','date','time','action'],
   Admins:     ['email','name','addedAt'],
-  Externals:  ['email','name','org','status','addedBy','addedAt','lastLogin']
+  Externals:  ['email','name','org','status','addedBy','addedAt','lastLogin'],
+  GlobalViewers: ['email','name','addedBy','addedAt']
 };
 const TEXT_SHEETS = [SH.SIGNERS, SH.DOCS];
 const PURPOSES = ['sign','view','preview','unsign','pin-change'];
@@ -181,7 +189,7 @@ function api(action, p, token) {
   ensure_();
   const me = identity_(token);
   p = p || {};
-  const writes = ['finalizeDoc','sync','relay','addSigner','unlock','changePin','deleteSigner','saveDoc','addAdmin','removeAdmin','addExternal','setExternalStatus','removeExternal','setGuestUrl','inviteExternal'];
+  const writes = ['setDocAccess','addGlobalViewer','removeGlobalViewer','finalizeDoc','sync','relay','addSigner','unlock','changePin','deleteSigner','saveDoc','addAdmin','removeAdmin','addExternal','setExternalStatus','removeExternal','setGuestUrl','inviteExternal'];
   const lock = LockService.getScriptLock();
   const w = writes.indexOf(action) > -1;
   if (w) lock.waitLock(20000);
@@ -208,6 +216,10 @@ function api(action, p, token) {
       case 'removeExternal':    return admin_(me) && removeExternal_(me, p);
       case 'setGuestUrl':       return admin_(me) && setGuestUrl_(p);
       case 'inviteExternal':    return admin_(me) && inviteExternal_(me, p);
+      case 'listDocAccess':     return admin_(me) && listDocAccess_();
+      case 'setDocAccess':      return admin_(me) && setDocAccess_(me, p);
+      case 'addGlobalViewer':   return admin_(me) && addGlobalViewer_(me, p);
+      case 'removeGlobalViewer':return admin_(me) && removeGlobalViewer_(me, p);
       default: throw new Error('إجراء غير معروف');
     }
   } finally { if (w) lock.releaseLock(); }
@@ -316,14 +328,29 @@ function verify_(r, tag) {
 }
 
 /* ======================= Documents ======================= */
-function docVisible_(me, r) {
-  if (!me.external) return true;
-  return String(r.externalEmails || '').split(',').map(norm_).indexOf(me.email) > -1;
+function emails_(v) { return String(v || '').split(',').map(norm_).filter(Boolean); }
+function isGlobalViewer_(e) { return rows_(SH.GV).some(r => norm_(r.email) === e); }
+function partyEmailsOf_(r) {
+  const own = emails_(r.partyEmails);
+  return own.length ? own : emails_(r.externalEmails);   // documents saved before v2.0
 }
+/** Role of the caller on one MoU: 'admin' | 'editor' | 'signer' | 'viewer' | null */
+function docRole_(me, r) {
+  if (me.isAdmin) return 'admin';
+  const e = me.email;
+  if (!me.external && (norm_(r.createdBy) === e || emails_(r.editors).indexOf(e) > -1)) return 'editor';
+  if (partyEmailsOf_(r).indexOf(e) > -1) return 'signer';
+  if (emails_(r.viewers).indexOf(e) > -1) return 'viewer';
+  if (!me.external && (me.gv !== undefined ? me.gv : isGlobalViewer_(e))) return 'viewer';
+  if (me.external && emails_(r.editors).indexOf(e) > -1) return 'signer';   // guests never edit text
+  return null;
+}
+function docVisible_(me, r) { return !!docRole_(me, r); }
 
 function listDocs_(me) {
-  return rows_(SH.DOCS).filter(r => docVisible_(me, r)).map(r => ({
-    docId: r.docId, refNo: r.refNo, title: r.title, status: r.status,
+  const gv = !me.external && !me.isAdmin && isGlobalViewer_(me.email);
+  return rows_(SH.DOCS).map(r => ({ r, role: docRole_(Object.assign({}, me, { gv }), r) })).filter(x => x.role).map(({ r, role }) => ({
+    docId: r.docId, refNo: r.refNo, title: r.title, status: r.status, role,
     updatedBy: r.updatedBy, updatedAt: String(r.updatedAt)
   })).reverse();
 }
@@ -335,6 +362,7 @@ function loadDoc_(me, docId) {
   d.logoRight = String(r.logoRight || '');
   d.logoLeft  = String(r.logoLeft || '');
   d.rev = Number(r.rev) || 0;
+  d.role = docRole_(me, r);
   d.final = r.finalPdfId ? { at: String(r.finalizedAt), by: String(r.finalizedBy), pdfHash: String(r.pdfHash), sentTo: String(r.sentTo) } : null;
   return d;
 }
@@ -343,7 +371,11 @@ function saveDoc_(me, p) {
   let d = p.doc || {};
   const existing = d.docId ? rows_(SH.DOCS).find(x => x.docId === d.docId) : null;
   if (existing && existing.finalPdfId) throw new Error('المذكرة نهائية — صدرت نسختها الموقّعة ولا يمكن تعديلها أو إزالة التوقيعات.');
-  if (existing && !me.external) {
+  const role = existing ? docRole_(me, existing) : (me.external ? null : 'editor');
+  if (!role) throw new Error('غير مصرّح بهذه المذكرة');
+  if (role === 'viewer') throw new Error('لديك صلاحية المشاهدة فقط لهذه المذكرة');
+  const limited = me.external || role === 'signer';   // may only add/remove their own signature
+  if (existing && !limited) {
     // Optimistic concurrency: refuse to overwrite a newer version saved by someone else
     if (p.baseRev !== undefined && p.baseRev !== null && Number(existing.rev || 0) !== Number(p.baseRev))
       throw new Error('CONFLICT|تم تعديل المذكرة من مستخدم آخر — تم تحميل أحدث نسخة، راجعها ثم أعد المحاولة.');
@@ -352,9 +384,9 @@ function saveDoc_(me, p) {
       throw new Error('CONFLICT|يقوم ' + ed.email + ' بتحرير المذكرة الآن — انتظر حتى ينتهي.');
   }
 
-  if (me.external) {
-    // Guests cannot create or edit documents — they may only add/remove THEIR OWN signature.
-    if (!existing || !docVisible_(me, existing)) throw new Error('غير مصرّح');
+  if (limited) {
+    // Guests and party representatives may only add/remove THEIR OWN signature.
+    if (!existing) throw new Error('غير مصرّح');
     const stored = JSON.parse(existing.json);
     stored.signed = stored.signed || {}; stored.sel = stored.sel || {};
     ['p1', 'p2'].forEach(k => {
@@ -377,14 +409,15 @@ function saveDoc_(me, p) {
 
   const logoRight = cleanLogo_(d.logoRight), logoLeft = cleanLogo_(d.logoLeft);
   delete d.logoRight; delete d.logoLeft; delete d.rev; delete d.final;
-  const emails = [d.p1email, d.p2email].map(norm_).filter(e => e && !e.endsWith('@' + ALLOWED_DOMAIN)).join(',');
+  const parties = [d.p1email, d.p2email].map(norm_).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e));
+  const emails = parties.filter(e => !e.endsWith('@' + ALLOWED_DOMAIN)).join(',');
   const json = JSON.stringify(d);
   if (json.length > 48000) throw new Error('نص المذكرة طويل جداً للحفظ (الحد ~48 ألف حرف)');
 
   const rev = (existing ? Number(existing.rev || 0) : 0) + 1;
   delete d.rev;
   const rec = { docId: d.docId, refNo: clean_(d.refNo, 60), title: clean_(d.title, 200), status, json,
-                updatedBy: me.email, updatedAt: now, logoRight, logoLeft, externalEmails: emails, rev: String(rev) };
+                updatedBy: me.email, updatedAt: now, logoRight, logoLeft, externalEmails: emails, partyEmails: parties.join(','), rev: String(rev) };
   if (existing) update_(SH.DOCS, existing._row, rec);
   else append_(SH.DOCS, Object.assign(rec, { createdBy: me.email, createdAt: now }));
   cache_().put('rev:' + d.docId, String(rev), 21600);
@@ -402,6 +435,7 @@ function cleanLogo_(v) {
 function finalizeDoc_(me, p) {
   const r = rows_(SH.DOCS).find(x => x.docId === p.docId);
   if (!r || !docVisible_(me, r)) throw new Error('المذكرة غير موجودة أو غير مصرّح بها');
+  if (docRole_(me, r) === 'viewer') throw new Error('لديك صلاحية المشاهدة فقط لهذه المذكرة');
   if (r.status !== 'signed') throw new Error('لا يمكن إصدار النسخة النهائية قبل توقيع الطرفين');
   if (r.finalPdfId && !(p.resend && !me.external && me.isAdmin)) return { ok: true, already: true, at: String(r.finalizedAt) };
   if (!isB64_(p.pdf, MAX_PDF_B64)) throw new Error('ملف PDF غير صالح أو كبير جداً');
@@ -471,25 +505,26 @@ function getFinalPdf_(me, p) {
 /* ======================= Live collaboration ======================= */
 function cache_() { return CacheService.getScriptCache(); }
 
-/** Ensures the caller may see this document (cached 5 min per user). Returns current revision. */
+/** Ensures the caller may see this document; returns { rev, role }. Role is cached 60 s per user. */
 function liveDoc_(me, docId) {
   const c = cache_();
   const aclKey = 'acl:' + docId + ':' + me.email;
-  let rev = c.get('rev:' + docId);
-  if (rev === null || c.get(aclKey) !== '1') {
+  let rev = c.get('rev:' + docId), role = c.get(aclKey);
+  if (rev === null || !role) {
     const r = rows_(SH.DOCS).find(x => x.docId === docId);
-    if (!r || !docVisible_(me, r)) throw new Error('المذكرة غير موجودة أو غير مصرّح بها');
+    role = r ? docRole_(me, r) : null;
+    if (!role) throw new Error('المذكرة غير موجودة أو غير مصرّح بها');
     rev = String(Number(r.rev) || 0);
     c.put('rev:' + docId, rev, 21600);
-    c.put(aclKey, '1', 300);
+    c.put(aclKey, role, 60);
   }
-  return Number(rev);
+  return { rev: Number(rev), role };
 }
 
 function sync_(me, p) {
   const docId = clean_(p.docId, 64);
   if (!docId) return { rev: 0, editor: null, presence: [], relays: [] };
-  const rev = liveDoc_(me, docId);
+  const { rev, role: myRole } = liveDoc_(me, docId);
   const c = cache_(), now = Date.now(), pk = 'pres:' + docId, ek = 'edit:' + docId;
 
   const pres = JSON.parse(c.get(pk) || '{}');
@@ -497,21 +532,21 @@ function sync_(me, p) {
   if (p.leave) delete pres[me.email];
   else {
     const mine = pres[me.email] || { name: displayName_(me), external: me.external };
-    mine.ts = now;
+    mine.ts = now; mine.role = myRole;
     if (isJwk_(p.pub)) mine.pub = { kty: 'EC', crv: 'P-256', x: p.pub.x, y: p.pub.y };
     pres[me.email] = mine;
   }
 
   let ed = JSON.parse(c.get(ek) || 'null');
   if (ed && (now - ed.ts > EDIT_TTL_MS || !pres[ed.email])) ed = null;
-  if (!me.external && p.wantEdit && !p.leave && (!ed || ed.email === me.email)) ed = { email: me.email, ts: now };
+  if ((myRole === 'admin' || myRole === 'editor') && p.wantEdit && !p.leave && (!ed || ed.email === me.email)) ed = { email: me.email, ts: now };
   if (ed && ed.email === me.email && (p.releaseEdit || p.leave)) ed = null;
   if (ed) c.put(ek, JSON.stringify(ed), 60); else c.remove(ek);
   c.put(pk, JSON.stringify(pres), 120);
 
   return {
     rev, editor: ed ? ed.email : null,
-    presence: Object.keys(pres).map(e => ({ email: e, name: pres[e].name, external: !!pres[e].external, pub: pres[e].pub || null, self: e === me.email })),
+    presence: Object.keys(pres).map(e => ({ email: e, name: pres[e].name, role: pres[e].role || '', external: !!pres[e].external, pub: pres[e].pub || null, self: e === me.email })),
     relays: p.leave ? [] : takeRelays_(docId, me.email)
   };
 }
@@ -574,7 +609,8 @@ function listUsers_() {
       email: String(r.email), name: String(r.name), org: String(r.org), status: String(r.status),
       addedBy: String(r.addedBy), addedAt: String(r.addedAt), lastLogin: String(r.lastLogin || '')
     })),
-    guestUrl: prop_('GUEST_URL') || ''
+    guestUrl: prop_('GUEST_URL') || '',
+    globalViewers: rows_(SH.GV).map(r => ({ email: String(r.email), name: String(r.name), addedBy: String(r.addedBy), addedAt: String(r.addedAt) }))
   };
 }
 function addAdmin_(me, p) {
@@ -643,6 +679,46 @@ function inviteExternal_(me, p) {
       '<hr><p style="font-size:12px;color:#6b5a80">You have been invited to the Sulaiman Al Rajhi University MoU Signing Platform. Open the link above and enter your e-mail to receive a one-time sign-in code.</p></div>'
   });
   logAccess_(me.email, 'external-invited:' + r.email);
+  return { ok: true };
+}
+
+/* ======================= Per-MoU access (admin) ======================= */
+function listDocAccess_() {
+  return rows_(SH.DOCS).map(r => ({
+    docId: r.docId, refNo: String(r.refNo), title: String(r.title), status: String(r.status),
+    createdBy: String(r.createdBy), editors: emails_(r.editors), viewers: emails_(r.viewers), parties: partyEmailsOf_(r)
+  })).reverse();
+}
+function checkAccessEmail_(e) {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error('بريد غير صالح: ' + e);
+  if (!e.endsWith('@' + ALLOWED_DOMAIN) && !isExternalActive_(e))
+    throw new Error(e + ' ليس من منسوبي الجامعة — أضفه أولاً في "المستخدمون الخارجيون"');
+}
+function setDocAccess_(me, p) {
+  const r = rows_(SH.DOCS).find(x => x.docId === p.docId);
+  if (!r) throw new Error('المذكرة غير موجودة');
+  const uniq = a => (a || []).map(norm_).filter((e, i, x) => e && x.indexOf(e) === i);
+  const editors = uniq(p.editors), viewers = uniq(p.viewers).filter(e => editors.indexOf(e) === -1);
+  editors.concat(viewers).forEach(checkAccessEmail_);
+  const before = emails_(r.editors).concat(emails_(r.viewers));
+  update_(SH.DOCS, r._row, { editors: editors.join(','), viewers: viewers.join(',') });
+  before.forEach(e => cache_().remove('acl:' + r.docId + ':' + e));      // revoke live access immediately
+  logAccess_(me.email, 'doc-access:' + r.refNo + ' editors=' + editors.length + ' viewers=' + viewers.length);
+  return { ok: true };
+}
+function addGlobalViewer_(me, p) {
+  const email = norm_(p.email);
+  if (!email.endsWith('@' + ALLOWED_DOMAIN)) throw new Error('قائمة المشاهدة العامة لمنسوبي الجامعة فقط (@' + ALLOWED_DOMAIN + ')');
+  if (rows_(SH.GV).some(r => norm_(r.email) === email)) throw new Error('موجود مسبقاً');
+  append_(SH.GV, { email, name: clean_(p.name, 120), addedBy: me.email, addedAt: new Date().toISOString() });
+  logAccess_(me.email, 'global-viewer-added:' + email);
+  return { ok: true };
+}
+function removeGlobalViewer_(me, p) {
+  const r = rows_(SH.GV).find(x => norm_(x.email) === norm_(p.email));
+  if (!r) throw new Error('غير موجود');
+  sheet_(SH.GV).deleteRow(r._row);
+  logAccess_(me.email, 'global-viewer-removed:' + r.email);
   return { ok: true };
 }
 

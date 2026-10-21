@@ -2,6 +2,19 @@
 <html lang="ar" dir="rtl">
 <head>
 <base target="_top">
+<script>
+/* v2.1 — loaded before everything else so even a broken main script is reported on screen */
+window.diag=function(msg, warn){
+  try{
+    var show=function(){ var host=document.getElementById('diag'); if(!host){ host=document.createElement('div'); host.id='diag'; document.body.insertBefore(host, document.body.firstChild); }
+      var d=document.createElement('div'); d.className='diagbar'+(warn?' warn':''); d.innerHTML=msg; host.appendChild(d); };
+    document.body ? show() : document.addEventListener('DOMContentLoaded', show);
+  }catch(_){}
+};
+window.addEventListener('error', function(e){ diag('⚠️ خطأ في الصفحة: <code>'+String(e.message||'').replace(/</g,'&lt;')+' — سطر '+(e.lineno||'?')+'</code>'); });
+window.addEventListener('unhandledrejection', function(e){ diag('⚠️ خطأ: <code>'+String((e.reason&&e.reason.message)||e.reason||'').replace(/</g,'&lt;')+'</code>'); });
+</script>
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -122,6 +135,22 @@ tr:nth-child(even) td{background:#fcfbfe}
 .busy{position:fixed;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));display:none;z-index:70}
 .loading .busy{display:block}
 
+/* v2.1: start-up diagnostics */
+.diagbar{position:sticky;top:0;z-index:80;background:#fdecea;color:#b42318;border-bottom:2px solid #b42318;padding:8px 16px;font-size:13px;font-weight:700;direction:rtl}
+.diagbar.warn{background:#fff6e0;color:#8a5a00;border-color:#e0a800}
+.diagbar code{font-weight:400;direction:ltr;unicode-bidi:isolate;font-size:12px}
+
+/* v2.0: per-MoU access */
+.rolebar{display:none;background:var(--blue-light);color:var(--blue);border:1px solid #b9dcef;border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-weight:700}
+.ro-viewer .rolebar,.ro-signer .rolebar{display:block}
+.chips{display:flex;flex-wrap:wrap;gap:6px;min-height:30px;padding:6px;border:1px dashed var(--border);border-radius:var(--radius)}
+.uchip{display:inline-flex;align-items:center;gap:6px;background:var(--purple-light);color:var(--purple-dark);border-radius:20px;padding:2px 4px 2px 10px;font-size:13px}
+.uchip.v{background:var(--blue-light);color:var(--blue)}
+.uchip.fixed{background:#eee;color:#555;padding-left:10px}
+.uchip button{border:0;background:rgba(0,0,0,.08);border-radius:50%;width:20px;height:20px;cursor:pointer;color:inherit;font-weight:700;line-height:18px}
+.acc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+@media(max-width:720px){.acc-grid{grid-template-columns:1fr}}
+
 /* v1.9: final signed copy */
 .finalbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--ok-bg);color:var(--ok);border:1px solid #b7e2c8;border-radius:var(--radius);padding:8px 12px;margin-bottom:12px;font-weight:700}
 .finalbar.pending{background:var(--blue-light);color:var(--blue);border-color:#b9dcef}
@@ -187,7 +216,7 @@ footer img{height:38px}
 @media print{
   @page{size:A4;margin:16mm}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .no-print,.topbar,.toolbar,.rt,.lockbar,.tamper,footer,.diag,.hold,.wm,.shield,.busy,.login,.livebar,.editbar{display:none!important}
+  .no-print,.topbar,.toolbar,.rt,.lockbar,.tamper,footer,.diag,.hold,.wm,.shield,.busy,.login,.livebar,.editbar,.rolebar{display:none!important}
   .logo-slot select{display:none!important}
   #view-users{display:none!important}
   .wrap{padding:0;max-width:none}
@@ -201,6 +230,7 @@ footer img{height:38px}
 </head>
 <body>
 <div class="busy"></div>
+<div id="diag" class="no-print"></div>
 
 <div class="band">
   <div class="in">
@@ -248,6 +278,7 @@ footer img{height:38px}
   </div>
 
   <div id="docWrap">
+    <div class="rolebar no-print" id="rolebar"></div>
     <div class="editbar no-print" id="editbar"></div>
     <div class="finalbar no-print" id="finalbar" hidden></div>
     <div class="lockbar no-print"><i data-lucide="lock"></i> المستند مقفل للتعديل لأنه يحتوي على توقيع. إزالة أي توقيع تتطلب الرقم السري لصاحبه.</div>
@@ -343,6 +374,40 @@ footer img{height:38px}
 <section id="view-users" hidden>
   <div class="users-grid">
     <div class="card">
+      <h2><i data-lucide="lock-keyhole"></i> صلاحيات المذكرات</h2>
+      <div class="hint" style="margin-bottom:8px">حدّد لكل مذكرة من يحرّرها ومن يشاهدها. لا يرى المذكرة غيرهم، باستثناء المسؤولين وممثلي الطرفين وأعضاء قائمة المشاهدة العامة.</div>
+      <div class="grid g2" style="align-items:end">
+        <div><label>المذكرة</label><select id="accDoc" onchange="renderAccess()"></select></div>
+        <div class="hint" id="accMeta"></div>
+      </div>
+      <div class="inline" style="margin-top:12px;grid-template-columns:3fr 2fr auto">
+        <div><label>البريد الإلكتروني</label><input id="accEmail" type="email" list="knownUsers" class="en" style="direction:ltr" placeholder="name@sr.edu.sa"></div>
+        <div><label>الصلاحية</label><select id="accRole"><option value="viewers">مشاهد (قراءة فقط)</option><option value="editors">محرّر (تعديل وتوقيع)</option></select></div>
+        <button class="btn" onclick="addAccess()"><i data-lucide="user-plus"></i> إضافة</button>
+      </div>
+      <datalist id="knownUsers"></datalist>
+      <div class="acc-grid">
+        <div><label>✏️ المحرّرون</label><div class="chips" id="accEditors"></div></div>
+        <div><label>👁 المشاهدون</label><div class="chips" id="accViewers"></div></div>
+      </div>
+      <div style="margin-top:10px"><label>صلاحيات تلقائية (لا تُعدَّل هنا)</label><div class="chips" id="accFixed"></div></div>
+    </div>
+
+    <div class="card">
+      <h2><i data-lucide="eye"></i> قائمة المشاهدة العامة</h2>
+      <div class="hint" style="margin-bottom:8px">أعضاء هذه القائمة يشاهدون <b>جميع</b> المذكرات قراءةً فقط (مثل مكتب الاتفاقيات أو الإدارة القانونية). لمنسوبي الجامعة فقط.</div>
+      <div class="inline">
+        <div><label>البريد (@sr.edu.sa)</label><input id="gvEmail" type="email" class="en" style="direction:ltr" placeholder="name@sr.edu.sa"></div>
+        <div><label>الاسم / الجهة</label><input id="gvName"></div>
+        <div></div>
+        <button class="btn" onclick="addGV()"><i data-lucide="plus"></i> إضافة</button>
+      </div>
+      <div style="overflow-x:auto;margin-top:12px"><table>
+        <thead><tr><th>البريد</th><th>الاسم</th><th>أُضيف بواسطة</th><th></th></tr></thead>
+        <tbody id="gvBody"></tbody></table></div>
+    </div>
+
+    <div class="card">
       <h2><i data-lucide="shield"></i> مسؤولو المنصة</h2>
       <div class="inline">
         <div><label>البريد (@sr.edu.sa)</label><input id="aEmail" type="email" placeholder="name@sr.edu.sa"></div>
@@ -435,6 +500,8 @@ footer img{height:38px}
 
 <script>
 'use strict';
+/* ---------- Start-up diagnostics (v2.1): never fail silently ---------- */
+const CLIENT_VERSION = '2.1';
 /* ---------- Boot data injected by Apps Script ---------- */
 let BOOT = <?!= boot ?>;
 const VERSION = BOOT.version;
@@ -621,11 +688,11 @@ const DEFAULT_BODY = `<p><b>تمهيد:</b> انطلاقاً من رغبة ال�
 <h3>المادة السادسة: مدة المذكرة</h3><p>تسري هذه المذكرة لمدة [سنتين] من تاريخ توقيعها، وتُجدَّد تلقائياً ما لم يُخطر أحد الطرفين الآخر كتابياً برغبته في عدم التجديد قبل [ستين] يوماً من انتهائها.</p>
 <h3>المادة السابعة: أحكام عامة</h3><p>لا تُرتِّب هذه المذكرة أي التزامات مالية على أيٍّ من الطرفين، وتُنفَّذ أوجه التعاون بموجب اتفاقيات تنفيذية مستقلة عند الحاجة. حُرِّرت هذه المذكرة من نسختين أصليتين، بيد كل طرف نسخة للعمل بموجبها.</p>`;
 
-const state = { final:null, docId:'', rev:0, otherEditor:null, sel:{p1:'',p2:''}, signed:{p1:null,p2:null}, logos:{right:'sru', left:''} };
+const state = { role:'editor', final:null, docId:'', rev:0, otherEditor:null, sel:{p1:'',p2:''}, signed:{p1:null,p2:null}, logos:{right:'sru', left:''} };
 const LOGO_OPTS = [['','بدون شعار'],['sru','شعار الجامعة'],['ictd','شعار ICTD'],['itoc','شعار ITOC'],['upload','رفع شعار…']];
 function logoSrc(v){ return !v||v==='none' ? '' : (LOGOS[v] || (v.startsWith('data:image/')?v:'')); }
 function renderLogos(){
-  const locked = !!(state.signed.p1||state.signed.p2) || BOOT.external || !!state.otherEditor;
+  const locked = !!(state.signed.p1||state.signed.p2) || isRO() || !!state.otherEditor;
   [['right','#slotRight','يمين'],['left','#slotLeft','يسار']].forEach(([side,sel,lbl])=>{
     const v=state.logos[side], src=logoSrc(v);
     const cur = LOGOS[v]!==undefined||!v ? v : 'custom';
@@ -658,7 +725,7 @@ function setDirty(v){
 let autoT=null;
 function scheduleAutosave(){
   clearTimeout(autoT);
-  if(!state.docId || BOOT.external) return;            // new documents are saved manually the first time
+  if(!state.docId || isRO()) return;                   // new documents are saved manually the first time
   autoT=setTimeout(()=>{ if(dirty && !state.otherEditor) saveDoc(true); }, 2500);
 }
 const PARTY = {p1:'الطرف الأول', p2:'الطرف الثاني'};
@@ -682,13 +749,13 @@ function renderSigs(){
     else box='<div class="sigbox"><span class="no-print">التوقيع</span></div>';
     return `<div class="sig" id="sig-${p}">
       <div class="who">${PARTY[p]}</div><div class="org">${esc($('#'+p+'org').value)}</div>
-      ${sg?'':`<select class="no-print" onchange="pickSigner('${p}',this.value)" ${state.otherEditor?'disabled':''}>${opts(state.sel[p])}</select>`}
+      ${sg||!canSign()?'':`<select class="no-print" onchange="pickSigner('${p}',this.value)" ${state.otherEditor?'disabled':''}>${opts(state.sel[p])}</select>`}
       <div class="row"><b>الاسم:</b> ${esc(name)}</div>
       <div class="row"><b>المسمى:</b> ${esc(pos)}</div>
       ${box}
       <div class="stamp">${sg?'وُقِّع إلكترونياً: '+fmtDT(sg.at):''}</div>
       <div class="no-print" style="margin-top:6px">
-        ${sg?(state.final?'<span class="hint">✔ نسخة نهائية</span>':`<button class="btn danger sm" onclick="removeSig('${p}')"><i data-lucide="x"></i> إزالة التوقيع</button>`)
+        ${!canSign()?'':sg?(state.final?'<span class="hint">✔ نسخة نهائية</span>':`<button class="btn danger sm" onclick="removeSig('${p}')"><i data-lucide="x"></i> إزالة التوقيع</button>`)
             :`<button class="btn sm" onclick="signParty('${p}')" ${s&&!state.otherEditor?'':'disabled'}><i data-lucide="pen-line"></i> إدراج التوقيع</button>`}
       </div></div>`;
   }).join('');
@@ -727,7 +794,7 @@ async function refreshLock(){
   $('#docTitle').contentEditable=$('#docBody').contentEditable=String(!locked);
   ['#refNo','#docDate','#p1org','#p2org'].forEach(s=>$(s).disabled=locked);
   document.querySelectorAll('#rt button').forEach(b=>b.disabled=locked);
-  ['#p1email','#p2email'].forEach(s=>$(s).disabled=locked||BOOT.external);
+  ['#p1email','#p2email'].forEach(s=>$(s).disabled=locked||isRO());
   if(locked && wantEdit){ wantEdit=false; releaseEdit=true; }   // a signed document can't be edited → free the edit lock
   const oe = locked ? null : state.otherEditor;
   $('#docWrap').classList.toggle('otherediting', !!oe);
@@ -738,7 +805,11 @@ async function refreshLock(){
     ['#refNo','#docDate','#p1org','#p2org','#p1email','#p2email'].forEach(s=>$(s).disabled=true);
     document.querySelectorAll('#rt button').forEach(b=>b.disabled=true);
   }
-  if(BOOT.external){ $('#docTitle').contentEditable=$('#docBody').contentEditable='false'; ['#refNo','#docDate','#p1org','#p2org'].forEach(s=>$(s).disabled=true); }
+  if(isRO()){ $('#docTitle').contentEditable=$('#docBody').contentEditable='false'; ['#refNo','#docDate','#p1org','#p2org'].forEach(s=>$(s).disabled=true); document.querySelectorAll('#rt button').forEach(b=>b.disabled=true); }
+  const dw=$('#docWrap'); dw.classList.toggle('ro-viewer', state.role==='viewer'); dw.classList.toggle('ro-signer', state.role==='signer' && !BOOT.external);
+  $('#rolebar').innerHTML = state.role==='viewer' ? '👁 وضع المشاهدة فقط — يمكنك الاطلاع على هذه المذكرة دون تعديل أو توقيع.'
+                         : '✍️ أنت ممثل أحد الطرفين — يمكنك إضافة توقيعك فقط، ولا يمكن تعديل نص المذكرة.';
+  document.querySelector('.toolbar .btn:not(.sec):not(.danger)').disabled = state.role==='viewer';
   renderLogos();
   const h = await docHash();
   const tampered = ['p1','p2'].some(p=>state.signed[p] && state.signed[p].hash!==h);
@@ -785,6 +856,7 @@ async function applyDoc(d){
   state.signed={p1:keep('p1'), p2:keep('p2')};
   state.rev = d.rev||0;
   state.final = d.final||null;
+  state.role = d.role || 'editor';   // older server versions don't send a role; the server still enforces access
   updateHijri(); await refreshLock(); dirty=false; $('#dirty').hidden=true;
   if(prevSigned && d.final && !prevFinal) toast('📄 صدرت النسخة النهائية الموقّعة وأُرسلت بالبريد');
   if(prevSigned) ['p1','p2'].forEach(k=>{ if(state.signed[k] && !prevSigned[k]){ toast('✍️ وقّع '+state.signed[k].signerName+' — '+PARTY[k]); const el=$('#sig-'+k); if(el){ el.classList.add('flash'); } } });
@@ -812,7 +884,7 @@ async function refreshDocs(){
   try{
     const list=await call('listDocs'), sel=$('#docList');
     const label={draft:'مسودة','partially-signed':'موقّعة جزئياً',signed:'موقّعة'};
-    sel.innerHTML='<option value="">📂 فتح مذكرة محفوظة…</option>'+list.map(d=>`<option value="${esc(d.docId)}" ${d.docId===state.docId?'selected':''}>${esc(d.refNo)} — ${esc(d.title)} (${label[d.status]||d.status})</option>`).join('');
+    sel.innerHTML='<option value="">📂 فتح مذكرة محفوظة…</option>'+list.map(d=>`<option value="${esc(d.docId)}" ${d.docId===state.docId?'selected':''}>${d.role==='viewer'?'👁 ':d.role==='signer'?'✍️ ':''}${esc(d.refNo)} — ${esc(d.title)} (${label[d.status]||d.status})</option>`).join('');
   }catch(e){ toast(e.message); }
 }
 async function openDoc(id){
@@ -871,6 +943,12 @@ document.addEventListener('dragstart',e=>{ if(e.target.tagName==='IMG') e.preven
 document.addEventListener('copy',e=>{ if(!e.target.closest||!e.target.closest('input,[contenteditable=true]')) e.preventDefault(); });
 setInterval(()=>document.querySelectorAll('.wm').forEach(w=>w.textContent=wmText()),60000);
 
+/* ---------- Roles (v2.0) ---------- */
+const ROLE_LBL={admin:'مسؤول', editor:'محرّر', signer:'ممثل طرف', viewer:'مشاهد'};
+/** Read-only for the MoU text: guests, party representatives and viewers. */
+const isRO = () => BOOT.external || state.role==='viewer' || state.role==='signer';
+const canSign = () => state.role!=='viewer';
+
 /* ---------- Final signed copy (v1.9) ---------- */
 let libsP=null, finalizing=false;
 function loadScript(src){ return new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src=src; sc.onload=res; sc.onerror=()=>rej(new Error('تعذّر تحميل مكتبة PDF — تحقق من الاتصال')); document.head.appendChild(sc); }); }
@@ -891,7 +969,7 @@ function renderFinal(allSigned){
       <span class="en">${esc((state.final.sentTo||'').split(',').join('، '))}</span><br>
       <small>بصمة الملف SHA-256: <span class="en">${esc(state.final.pdfHash)}</span></small></span>
       <button class="btn sm" onclick="downloadFinal()"><i data-lucide="download"></i> تنزيل PDF</button>`;
-  } else if(allSigned){
+  } else if(allSigned && canSign()){
     fb.className='finalbar pending no-print'; fb.hidden=false;
     fb.innerHTML=`<span>✍️ وقّع الطرفان. أصدر النسخة النهائية بصيغة PDF وأرسلها للطرفين.</span>
       <button class="btn sm" onclick="finalizeFlow(false)" ${finalizing?'disabled':''}><i data-lucide="file-check"></i> إصدار النسخة النهائية وإرسالها</button>`;
@@ -1059,7 +1137,7 @@ function renderPresence(){
   $('#liveDot').classList.toggle('on', live.ok);
   $('#viewers').innerHTML = (live.presence||[]).map(v=>`<span class="viewer ${v.email===live.editor?'ed':''} ${v.self?'me':''}" title="${esc(v.email)}">
       <i data-lucide="${v.external?'user-round':'user'}"></i>${esc(v.name)} <span class="em en">${esc(v.email)}</span>
-      ${v.self?'<span class="em">(أنت)</span>':''}${v.external?'<span class="em">· ضيف</span>':''}${v.email===live.editor?' ✏️':''}</span>`).join(' ');
+      ${v.self?'<span class="em">(أنت)</span>':''}${v.role?'<span class="em">· '+(ROLE_LBL[v.role]||'')+'</span>':''}${v.external?'<span class="em">· ضيف</span>':''}${v.email===live.editor?' ✏️':''}</span>`).join(' ');
   icons();
 }
 async function processRelays(){
@@ -1097,7 +1175,7 @@ async function pushRelays(){
 }
 // Edit gate: ask for the edit lock as soon as the user focuses something editable
 document.addEventListener('focusin', e=>{
-  if(BOOT.external || !state.docId) return;
+  if(isRO() || !state.docId) return;
   if(!e.target.closest('#docWrap')) return;
   if(!e.target.matches('input,select,[contenteditable=true]')) return;
   if(state.otherEditor){ e.target.blur(); toast('المذكرة قيد التحرير من مستخدم آخر'); return; }
@@ -1107,9 +1185,55 @@ document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) liveTic
 window.addEventListener('pagehide', ()=>{ try{ if(state.docId) google.script.run.api('sync',{docId:state.docId, leave:true}, TOKEN); }catch(_){} });
 
 /* ---------- Users (admins) ---------- */
+let ACC=[];
+function renderAccess(){
+  const sel=$('#accDoc'), id=sel.value, d=ACC.find(x=>x.docId===id);
+  const chip=(e,list)=>`<span class="uchip ${list==='viewers'?'v':''}"><span class="en">${esc(e)}</span><button title="إزالة" onclick="removeAccess('${list}','${esc(e)}')">×</button></span>`;
+  if(!d){ ['#accEditors','#accViewers','#accFixed'].forEach(x=>$(x).innerHTML=''); $('#accMeta').textContent='لا توجد مذكرات بعد.'; return; }
+  const st={draft:'مسودة','partially-signed':'موقّعة جزئياً',signed:'موقّعة'}[d.status]||d.status;
+  $('#accMeta').innerHTML=`الحالة: <b>${st}</b> · المنشئ: <span class="en">${esc(d.createdBy)}</span>`;
+  $('#accEditors').innerHTML=d.editors.map(e=>chip(e,'editors')).join('')||'<span class="hint">لا يوجد</span>';
+  $('#accViewers').innerHTML=d.viewers.map(e=>chip(e,'viewers')).join('')||'<span class="hint">لا يوجد</span>';
+  $('#accFixed').innerHTML=[`<span class="uchip fixed">المنشئ (محرّر): <span class="en">${esc(d.createdBy)}</span></span>`]
+    .concat(d.parties.map(e=>`<span class="uchip fixed">ممثل طرف (توقيع): <span class="en">${esc(e)}</span></span>`))
+    .concat(['<span class="uchip fixed">جميع المسؤولين</span>','<span class="uchip fixed">قائمة المشاهدة العامة (مشاهدة)</span>']).join('');
+}
+async function saveAccess(d, msg){
+  try{ await call('setDocAccess',{docId:d.docId, editors:d.editors, viewers:d.viewers}); toast(msg); }
+  catch(e){ toast(e.message); }
+  await loadAccess(d.docId);
+}
+async function loadAccess(keep){
+  try{
+    ACC=await call('listDocAccess');
+    const sel=$('#accDoc'), cur=keep||sel.value;
+    sel.innerHTML=ACC.map(d=>`<option value="${esc(d.docId)}" ${d.docId===cur?'selected':''}>${esc(d.refNo)} — ${esc(d.title)}</option>`).join('');
+    renderAccess();
+  }catch(e){ toast(e.message); }
+}
+function addAccess(){
+  const d=ACC.find(x=>x.docId===$('#accDoc').value); if(!d) return;
+  const e=$('#accEmail').value.trim().toLowerCase(), list=$('#accRole').value; if(!e) return toast('أدخل البريد');
+  const nd={...d, editors:d.editors.filter(x=>x!==e), viewers:d.viewers.filter(x=>x!==e)}; nd[list]=nd[list].concat(e);
+  $('#accEmail').value=''; saveAccess(nd, list==='editors'?'أُضيف كمحرّر':'أُضيف كمشاهد');
+}
+function removeAccess(list, e){
+  const d=ACC.find(x=>x.docId===$('#accDoc').value); if(!d) return;
+  if(!confirm('إزالة '+e+' من هذه المذكرة؟')) return;
+  saveAccess({...d, [list]:d[list].filter(x=>x!==e)}, 'تمت الإزالة');
+}
+function addGV(){ const email=$('#gvEmail').value.trim(); if(!email) return toast('أدخل البريد');
+  userAction('addGlobalViewer',{email,name:$('#gvName').value.trim()},'أُضيف إلى قائمة المشاهدة العامة').then(()=>{$('#gvEmail').value=$('#gvName').value='';}); }
+function removeGV(email){ if(confirm('إزالة '+email+' من قائمة المشاهدة العامة؟')) userAction('removeGlobalViewer',{email},'تمت الإزالة'); }
 async function loadUsers(){
+  loadAccess();
   try{
     const u=await call('listUsers');
+    $('#gvBody').innerHTML=!(u.globalViewers||[]).length?'<tr><td colspan="4" class="empty">القائمة فارغة.</td></tr>':u.globalViewers.map(g=>`<tr>
+      <td class="en">${esc(g.email)}</td><td>${esc(g.name)}</td><td class="en">${esc(g.addedBy)}</td>
+      <td><button class="btn danger sm" onclick="removeGV('${esc(g.email)}')"><i data-lucide="user-minus"></i></button></td></tr>`).join('');
+    $('#knownUsers').innerHTML=[...u.admins.map(a=>a.email), ...u.externals.filter(x=>x.status==='active').map(x=>x.email), ...(u.globalViewers||[]).map(g=>g.email)]
+      .filter((e,i,a)=>a.indexOf(e)===i).map(e=>`<option value="${esc(e)}">`).join('');
     $('#adminsBody').innerHTML=u.admins.map(a=>`<tr><td class="en">${esc(a.email)}</td><td>${esc(a.name)}</td><td>${fmtDT(a.addedAt)}</td>
       <td>${a.email.toLowerCase()===BOOT.email?'<span class="chip">أنت</span>':`<button class="btn danger sm" onclick="removeAdmin('${esc(a.email)}')"><i data-lucide="user-minus"></i></button>`}</td></tr>`).join('');
     $('#extBody').innerHTML=!u.externals.length?'<tr><td colspan="6" class="empty">لا يوجد مستخدمون خارجيون.</td></tr>':u.externals.map(x=>`<tr>
@@ -1164,6 +1288,8 @@ document.querySelectorAll('[data-logo]').forEach(el=>{
   else { el.className='logo-fallback'; el.textContent=el.dataset.alt; }
 });
 $('#verLbl').textContent=$('#verLbl2').textContent='v'+VERSION;
+if(VERSION!==CLIENT_VERSION) diag('⚠️ ملفا المنصة من إصدارين مختلفين: الخادم <b>Code.gs v'+VERSION+'</b> والواجهة <b>Index v'+CLIENT_VERSION+'</b>. '
+  +'استبدل الملفين معاً في Apps Script، شغّل <b>setup</b>، ثم <b>Deploy → Manage deployments → New version</b>.', true);
 if(!window.crypto?.subtle) alert('المتصفح لا يدعم التشفير. استخدم متصفحاً حديثاً.');
 async function startApp(){
   $('#userEmail').textContent=BOOT.email; $('#mfLbl').textContent=BOOT.maxFails;
@@ -1173,8 +1299,11 @@ async function startApp(){
   $('#addTitle').innerHTML = BOOT.isAdmin ? '<i data-lucide="user-plus"></i> إضافة صاحب توقيع' : '<i data-lucide="user-plus"></i> إضافة توقيعي';
   if(!BOOT.isAdmin){ $('#sName').value=BOOT.name||''; $('#sOrg').value=BOOT.org||''; }
   document.querySelectorAll('.toolbar .btn.danger, #rt').forEach(el=>el.hidden=BOOT.external);
-  await applyDoc({refNo:'ICTD-MOU-'+new Date().getFullYear()+'-001'});
-  await loadSigners(); await refreshDocs(); icons(); startLive();
+  const step = async (name, fn) => { try{ await fn(); }catch(e){ diag('⚠️ تعذّر تنفيذ خطوة البدء "'+name+'": <code>'+String(e.message||e).replace(/</g,'&lt;')+'</code>'); } };
+  await step('تهيئة المذكرة', ()=>applyDoc({refNo:'ICTD-MOU-'+new Date().getFullYear()+'-001'}));
+  await step('تحميل التوقيعات', loadSigners);
+  await step('تحميل قائمة المذكرات', refreshDocs);
+  icons(); startLive();
   if(BOOT.external) toast('اختر المذكرة المطلوبة من قائمة "فتح مذكرة محفوظة"');
 }
 if(BOOT.needsLogin){
