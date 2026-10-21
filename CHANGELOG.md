@@ -1,5 +1,10 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
+## v1.6 — 2026-10-21
+- Fix: "TypeError: Cannot read properties of null (reading 'appendRow')" on first sign-in when `setup` had not been run.
+- Backend is now self-healing: missing sheets, Drive folder or server secret are created automatically on first use (`ensure_`).
+- Clear error message if the script is not bound to the Google Sheet.
+
 ## v1.5 — 2026-10-21
 - Landing page: Web App URL placed directly on the sign-in button (`href`); removed the script check and the "WEB_APP_URL not set" alert, so the button works even with a cached or blocked script.
 - Version label updated to v1.5.

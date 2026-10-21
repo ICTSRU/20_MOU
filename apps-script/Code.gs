@@ -1,6 +1,6 @@
 /**
  * منصة توقيع مذكرات التفاهم — SRU MoU Signing
- * Google Apps Script backend · v1.5
+ * Google Apps Script backend · v1.6
  *
  * Security model
  *  - Encryption/decryption happens ONLY in the user's browser (Web Crypto).
@@ -13,7 +13,7 @@
  *    direct access to the Sheet or the Drive folder.
  */
 
-const APP_VERSION   = '1.5';
+const APP_VERSION   = '1.6';
 const ALLOWED_DOMAIN = 'sr.edu.sa';
 const MAX_FAILS     = 5;
 const LOCK_MINUTES  = 15;
@@ -53,8 +53,21 @@ function setup() {
   return 'Setup complete ✔';
 }
 
+/** Self-healing: runs setup() automatically if any sheet or script property is missing. */
+let ensured_ = false;
+function ensure_() {
+  if (ensured_) return;
+  const ss = SpreadsheetApp.getActive();
+  if (!ss) throw new Error('السكربت غير مرتبط بملف Google Sheet — أنشئه من Extensions → Apps Script داخل الملف');
+  const props = PropertiesService.getScriptProperties();
+  const missing = Object.keys(HEAD).some(n => !ss.getSheetByName(n)) || !props.getProperty('FOLDER_ID') || !props.getProperty('PEPPER');
+  if (missing) setup();
+  ensured_ = true;
+}
+
 /* ======================= Web app entry ======================= */
 function doGet() {
+  ensure_();
   let email;
   try { email = email_(); }
   catch (err) {
@@ -73,6 +86,7 @@ function doGet() {
 
 /** Single API endpoint called from the page via google.script.run.api(action, payload) */
 function api(action, p) {
+  ensure_();
   const email = email_();
   p = p || {};
   const writes = ['addSigner', 'unlock', 'changePin', 'deleteSigner', 'saveDoc'];
