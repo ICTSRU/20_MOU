@@ -1,30 +1,5 @@
 # CHANGELOG — منصة توقيع مذكرات التفاهم / SRU MoU Signing
 
-## v2.1 — 2026-10-21
-- Fix: the MoU could appear empty (no reference number, date, parties, text or signature boxes) when start-up stopped early — most likely when `Index` and `Code.gs` were from different versions.
-- Start-up is now step-by-step: a failing step no longer blanks the MoU.
-- On-screen diagnostics: an orange bar warns when `Code.gs` and `Index` versions differ; a red bar shows any script error with its line number (reporter loads before the main script).
-- Backward compatible with older servers: if the server doesn't send a role, the page falls back to the editor view (the server still enforces access).
-
-## v2.0 — 2026-10-21
-- **Per-MoU access control:** roles admin / editor / signer (party representative) / viewer, enforced on the server for listing, opening, saving, live sync, relay and finalization. Users without a role can't list, open or sync the MoU.
-- **Users tab → "صلاحيات المذكرات":** pick a MoU, add editors or viewers by e-mail, remove with ×; shows automatic roles (creator, party representatives, admins, global list).
-- **Users tab → "قائمة المشاهدة العامة":** new `GlobalViewers` sheet — members (SRU only) can view **all** MoUs read-only.
-- Read-only mode in the MoU for viewers (banner, locked fields, no signing controls) and signer mode for party representatives (text locked, own signature only).
-- Role shown in the "online now" bar and in the MoU picker (👁 viewer, ✍️ signer). Edit lock only for editors/admins (role computed on the server).
-- Revoking access takes effect within seconds, even on open pages. Access changes are logged.
-- **Behavior change:** staff no longer see every MoU by default — only their own or shared ones.
-- Migration: new `Documents` columns `editors`, `viewers`, `partyEmails`.
-
-## v1.9 — 2026-10-21
-- **Final signed copy:** when the second party signs, the browser renders an A4 PDF (logos, MoU text, both signatures, document fingerprint) plus an **Electronic Signature Certificate** page, with page numbers.
-- Server archives the PDF in the private Drive folder `SRU-MoU-Final-PDFs`, records SHA-256, finalizer and recipients (new `Documents` columns), and **e-mails it as an attachment** to both representatives, the signature owners and the creator (bilingual e-mail with signing audit table).
-- All open devices refresh and show the "final copy issued" banner with a **Download PDF** button.
-- After finalization the server rejects any edit or unsigning; remove-signature buttons are hidden.
-- If a signature image isn't available on the finalizing device, the PDF uses an e-signature certificate block (user is asked first).
-- PDF engine: manual A4 pagination (breaks between paragraphs, never mid-line) + browser-native text rendering for correct Arabic shaping.
-- `setup` creates the final-PDF folder automatically.
-
 ## v1.8 — 2026-10-21
 - **Live collaboration:** both parties can open the same MoU on different devices; pages sync every 4 s.
 - **"Online now" bar:** names and e-mails of everyone viewing the MoU (guests marked), with the current editor highlighted.
